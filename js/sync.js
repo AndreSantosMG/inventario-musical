@@ -1,5 +1,5 @@
 const sync = {
-    GAS_URL: 'https://script.google.com/macros/s/AKfycbxX40Cj4xveniBJ-yPYIw8QiTxbWlKMTV1vX2hA_Wn08azTm3KmgvsDd3A0_YFDBCHjQg/exec', 
+    GAS_URL: 'https://script.google.com/macros/s/AKfycbxX40Cj4xveniBJ-yPYIw8QiTxbWlKMTV1vX2hA_Wn08azTm3KmgvsDd3A0_YFDBCHjQg/exec',
     
     runSync: async () => {
         const btn = document.querySelector('button[onclick="sync.runSync()"]');
@@ -8,11 +8,6 @@ const sync = {
         btn.disabled = true;
 
         try {
-            if (!sync.GAS_URL || sync.GAS_URL.includes('SEU_ID')) {
-                throw new Error('URL do script não configurada');
-            }
-
-            // Envia apenas os itens da instituição atual
             const localItems = await db.getAll(app.currentInstituicao?.id);
             
             const response = await fetch(sync.GAS_URL, {
@@ -26,7 +21,7 @@ const sync = {
             });
 
             if (!response.ok) {
-                throw new Error(`Erro HTTP ${response.status}`);
+                throw new Error('Erro HTTP ' + response.status);
             }
 
             const textResponse = await response.text();
@@ -44,16 +39,16 @@ const sync = {
                     for (const updatedItem of result.updatedItems) {
                         await db.save(updatedItem);
                     }
-                    alert(`✅ Sucesso! ${result.updatedItems.length} fotos enviadas para a nuvem.`);
+                    alert('Sucesso! ' + result.updatedItems.length + ' fotos enviadas para a nuvem.');
                 } else {
-                    alert('✅ Sincronização concluída!');
+                    alert('Sincronização concluída!');
                 }
             } else {
                 throw new Error(result.message || 'Erro desconhecido');
             }
         } catch (error) {
             console.error('Erro detalhado:', error);
-            alert('❌ ERRO: ' + error.message);
+            alert('ERRO: ' + error.message);
             document.getElementById('sync-status').textContent = 'Erro: ' + error.message;
         } finally {
             btn.textContent = originalText;
