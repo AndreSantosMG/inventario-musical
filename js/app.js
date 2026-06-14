@@ -115,34 +115,49 @@ const app = {
     },
 
     renderDetail: async (codigo) => {
-        const item = await db.get(codigo);
-        app.currentItem = item;
-        const container = document.getElementById('detail-content');
+    const item = await db.get(codigo);
+    app.currentItem = item;
+    const container = document.getElementById('detail-content');
+    
+    let historicoHtml = item.historico.map(h => `<li class="text-xs text-gray-600">• ${h}</li>`).join('');
+
+    container.innerHTML = `
+        ${item.foto ? `<img src="${item.foto}" class="w-full h-48 object-cover rounded-lg mb-4">` : ''}
+        <h2 class="text-2xl font-bold">${item.codigo}</h2>
+        <p class="text-gray-600">${item.categoria} | ${item.descricao}</p>
+        <div class="bg-gray-100 p-3 rounded mt-2">
+            <p><strong>Status:</strong> ${item.status}</p>
+            <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>
+            <p><strong>Data Entrada:</strong> ${item.dataEntrada}</p>
+        </div>
         
-        let historicoHtml = item.historico.map(h => `<li class="text-xs text-gray-600">• ${h}</li>`).join('');
+        <!-- QR Code Section -->
+        <div class="mt-4 bg-white p-4 rounded-lg shadow text-center">
+            <p class="text-sm font-bold mb-2">QR Code do Item</p>
+            <div id="detail-qrcode" class="flex justify-center mb-2"></div>
+            <p class="text-xs text-gray-600">${item.codigo}</p>
+        </div>
+        
+        <div class="mt-4">
+            <h4 class="font-bold text-sm mb-2">Histórico</h4>
+            <ul class="space-y-1">${historicoHtml}</ul>
+        </div>
+    `;
 
-        container.innerHTML = `
-            ${item.foto ? `<img src="${item.foto}" class="w-full h-48 object-cover rounded-lg mb-4">` : ''}
-            <h2 class="text-2xl font-bold">${item.codigo}</h2>
-            <p class="text-gray-600">${item.categoria} | ${item.descricao}</p>
-            <div class="bg-gray-100 p-3 rounded mt-2">
-                <p><strong>Status:</strong> ${item.status}</p>
-                <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>
-                <p><strong>Data Entrada:</strong> ${item.dataEntrada}</p>
-            </div>
-            <div class="mt-4">
-                <h4 class="font-bold text-sm mb-2">Histórico</h4>
-                <ul class="space-y-1">${historicoHtml}</ul>
-            </div>
-        `;
+    // Generate QR Code for existing item
+    new QRCode(document.getElementById("detail-qrcode"), {
+        text: item.codigo,
+        width: 150,
+        height: 150
+    });
 
-        if (app.isLoggedIn) {
-            document.getElementById('admin-actions').classList.remove('hidden');
-        } else {
-            document.getElementById('admin-actions').classList.add('hidden');
-        }
-        app.navigate('detail');
-    },
+    if (app.isLoggedIn) {
+        document.getElementById('admin-actions').classList.remove('hidden');
+    } else {
+        document.getElementById('admin-actions').classList.add('hidden');
+    }
+    app.navigate('detail');
+},
 
     updateStatus: async (newStatus) => {
         if (!app.isLoggedIn) return;
