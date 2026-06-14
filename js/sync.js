@@ -58,17 +58,18 @@ const sync = {
     restoreFromCloud: async () => {
         const localItems = await db.getAll(app.currentInstituicao?.id);
         const localCount = localItems.length;
+        const instNome = app.currentInstituicao?.nome;
         
         // Primeiro, pergunta o modo de restauração
         const modeMsg = `Você tem ${localCount} itens no celular.\n\n` +
                        `Como deseja restaurar?\n\n` +
-                       `OK = MESCLAR (baixa da nuvem e mantém itens locais que não estão na nuvem)\n` +
+                       `OK = MESCLAR (baixa da nuvem e mantém itens locais)\n` +
                        `Cancelar = SUBSTITUIR (apaga tudo local e baixa apenas o que está na nuvem)`;
         
         const mode = confirm(modeMsg) ? 'merge' : 'replace';
         
         if (mode === 'replace') {
-            if (!confirm(`⚠️ ATENÇÃO!\n\nTodos os ${localCount} itens locais serão APAGADOS e substituídos pelos dados da planilha.\n\nDeseja continuar?`)) {
+            if (!confirm(`ATENÇÃO!\n\nTodos os ${localCount} itens locais serão APAGADOS e substituídos.\n\nDeseja continuar?`)) {
                 return;
             }
         }
@@ -95,24 +96,62 @@ const sync = {
             } catch (e) {
                 throw new Error('Resposta inválida do servidor');
             }
-
-            if (result.status === 'success' && result.data) {                const instNome = app.currentInstituicao?.nome;
+            if (result.status === 'success' && result.data) {
+                const totalNaNuvem = result.data.length;
                 
-                // Filtra itens da instituição atual
-                const itemsToRestore = result.data.filter(row => 
-                    !instNome || row.Instituicao === instNome
-                );
-
-                if (itemsToRestore.length === 0) {
-                    alert('A planilha está vazia ou não tem itens desta unidade.\n\nNenhum dado foi restaurado.');
+                // DIAGNÓSTICO: Mostra o que tem na nuvem
+                let diagnostico = `📊 DIAGNÓSTICO DA NUVEM:\n\n`;
+                diagnostico += `Total de itens na planilha: ${totalNaNuvem}\n`;
+                diagnostico += `Sua instituição: "${instNome}"\n\n`;
+                
+                if (totalNaNuvem === 0) {
+                    alert('A planilha está VAZIA.\n\nNão há nada para restaurar.');
                     return;
+                }
+                
+                // Mostra as primeiras 3 linhas para diagnóstico
+                diagnostico += `Primeiros itens na planilha:\n`;
+                result.data.slice(0, 3).forEach((row, idx) => {
+                    diagnostico += `${idx + 1}. ${row.Codigo} - ${row.Descricao} [Inst: "${row.Instituicao}"]\n`;
+                });
+                
+                if (totalNaNuvem > 3) {
+                    diagnostico += `... e mais ${totalNaNuvem - 3} itens\n`;
+                }
+                
+                // Filtra itens da instituição atual (filtro mais permissivo)
+                let itemsToRestore;
+                
+                if (!instNome || instNome === 'Escola de Música') {
+                    // Se for a instituição padrão, restaura TUDO
+                    itemsToRestore = result.data;
+                    diagnostico += `\n✅ Usando instituição padrão - restaurando TODOS os itens`;
+                } else {
+                    // Filtra por nome exato OU contém o nome
+                    itemsToRestore = result.data.filter(row => {
+                        const rowInst = row.Instituicao || '';
+                        return rowInst === instNome || 
+                               rowInst.includes(instNome) || 
+                               instNome.includes(rowInst);
+                    });
+                    diagnostico += `\n\nFiltrados por instituição: ${itemsToRestore.length} itens`;
+                }
+                
+                // Se não encontrou nada com filtro, pergunta se quer restaurar tudo
+                if (itemsToRestore.length === 0 && totalNaNuvem > 0) {
+                    const forcarMsg = diagnostico + `\n\n⚠️ Nenhum item encontrado para sua instituição "${instNome}".\n\nDeseja restaurar TODOS os ${totalNaNuvem} itens da planilha mesmo assim?`;
+                    if (confirm(forcarMsg)) {
+                        itemsToRestore = result.data;
+                    } else {
+                        alert('Restauração cancelada.');
+                        return;
+                    }                } else {
+                    alert(diagnostico);
                 }
 
                 if (mode === 'replace') {
-                    // Modo substituir: limpa tudo e baixa
                     await db.clear();
                 }
-                // Modo mesclar: não limpa, apenas adiciona/atualiza
 
                 let count = 0;
                 for (const row of itemsToRestore) {
@@ -145,7 +184,8 @@ const sync = {
             console.error('Erro na restauração:', error);
             alert('ERRO NA RESTAURAÇÃO: ' + error.message);
         } finally {
-            btn.textContent = originalText;            btn.disabled = false;
+            btn.textContent = originalText;
+            btn.disabled = false;
         }
     }
 };
