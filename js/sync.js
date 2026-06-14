@@ -56,18 +56,21 @@ const sync = {
     },
 
     restoreFromCloud: async () => {
-        // AVISO CLARO ANTES DE RESTAURAR
         const localItems = await db.getAll(app.currentInstituicao?.id);
         const localCount = localItems.length;
         
-        const confirmMsg = `⚠️ ATENÇÃO!\n\n` +
-                          `Você tem ${localCount} itens no celular.\n\n` +
-                          `A restauração vai SUBSTITUIR todos os dados locais pelos dados da planilha do Google.\n\n` +
-                          `Se a planilha estiver vazia ou com menos itens, você PERDERÁ dados locais.\n\n` +
-                          `Deseja continuar mesmo assim?`;
+        // Primeiro, pergunta o modo de restauração
+        const modeMsg = `Você tem ${localCount} itens no celular.\n\n` +
+                       `Como deseja restaurar?\n\n` +
+                       `OK = MESCLAR (baixa da nuvem e mantém itens locais que não estão na nuvem)\n` +
+                       `Cancelar = SUBSTITUIR (apaga tudo local e baixa apenas o que está na nuvem)`;
         
-        if (!confirm(confirmMsg)) {
-            return;
+        const mode = confirm(modeMsg) ? 'merge' : 'replace';
+        
+        if (mode === 'replace') {
+            if (!confirm(`⚠️ ATENÇÃO!\n\nTodos os ${localCount} itens locais serão APAGADOS e substituídos pelos dados da planilha.\n\nDeseja continuar?`)) {
+                return;
+            }
         }
 
         const btn = document.querySelector('button[onclick="sync.restoreFromCloud()"]');
@@ -93,30 +96,24 @@ const sync = {
                 throw new Error('Resposta inválida do servidor');
             }
 
-            if (result.status === 'success' && result.data) {
-                // Filtra apenas itens da instituição atual
-                const instId = app.currentInstituicao?.id;
-                const itemsToRestore = result.data.filter(row =>                     !instId || row.Instituicao === app.currentInstituicao?.nome
+            if (result.status === 'success' && result.data) {                const instNome = app.currentInstituicao?.nome;
+                
+                // Filtra itens da instituição atual
+                const itemsToRestore = result.data.filter(row => 
+                    !instNome || row.Instituicao === instNome
                 );
 
                 if (itemsToRestore.length === 0) {
-                    alert('️ A planilha está vazia ou não tem itens desta unidade.\n\nNenhum dado foi restaurado. Seus dados locais foram mantidos.');
+                    alert('A planilha está vazia ou não tem itens desta unidade.\n\nNenhum dado foi restaurado.');
                     return;
                 }
 
-                // Confirmação final antes de sobrescrever
-                const finalConfirm = `A planilha tem ${itemsToRestore.length} itens.\n\n` +
-                                    `Seus ${localCount} itens locais serão SUBSTITUÍDOS.\n\n` +
-                                    `Deseja prosseguir?`;
-                
-                if (!confirm(finalConfirm)) {
-                    alert('Restauração cancelada. Seus dados locais foram mantidos.');
-                    return;
+                if (mode === 'replace') {
+                    // Modo substituir: limpa tudo e baixa
+                    await db.clear();
                 }
+                // Modo mesclar: não limpa, apenas adiciona/atualiza
 
-                // Limpa banco local e restaura
-                await db.clear();
-                
                 let count = 0;
                 for (const row of itemsToRestore) {
                     const item = {
@@ -137,7 +134,8 @@ const sync = {
                     count++;
                 }
                 
-                alert(`✅ Restauração concluída!\n\n${count} itens baixados da nuvem.`);
+                const modeText = mode === 'merge' ? 'mesclados' : 'restaurados';
+                alert(`✅ Concluído!\n\n${count} itens ${modeText} da nuvem.`);
                 app.navigate('dashboard');
                 app.updateDashboard();
             } else {
@@ -145,9 +143,9 @@ const sync = {
             }
         } catch (error) {
             console.error('Erro na restauração:', error);
-            alert('ERRO NA RESTAURAÇÃO: ' + error.message);        } finally {
-            btn.textContent = originalText;
-            btn.disabled = false;
+            alert('ERRO NA RESTAURAÇÃO: ' + error.message);
+        } finally {
+            btn.textContent = originalText;            btn.disabled = false;
         }
     }
 };
