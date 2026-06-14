@@ -47,8 +47,7 @@ const sync = {
                 throw new Error(result.message || 'Erro desconhecido');
             }
         } catch (error) {
-            console.error('Erro detalhado:', error);
-            alert('ERRO: ' + error.message);
+            console.error('Erro detalhado:', error);            alert('ERRO: ' + error.message);
             document.getElementById('sync-status').textContent = 'Erro: ' + error.message;
         } finally {
             btn.textContent = originalText;
@@ -56,9 +55,18 @@ const sync = {
         }
     },
 
-    // NOVA FUNÇÃO: Restaurar dados da nuvem
     restoreFromCloud: async () => {
-        if (!confirm('Isso vai baixar todos os dados da planilha do Google e substituir os dados locais. Continuar?')) {
+        // AVISO CLARO ANTES DE RESTAURAR
+        const localItems = await db.getAll(app.currentInstituicao?.id);
+        const localCount = localItems.length;
+        
+        const confirmMsg = `⚠️ ATENÇÃO!\n\n` +
+                          `Você tem ${localCount} itens no celular.\n\n` +
+                          `A restauração vai SUBSTITUIR todos os dados locais pelos dados da planilha do Google.\n\n` +
+                          `Se a planilha estiver vazia ou com menos itens, você PERDERÁ dados locais.\n\n` +
+                          `Deseja continuar mesmo assim?`;
+        
+        if (!confirm(confirmMsg)) {
             return;
         }
 
@@ -86,8 +94,31 @@ const sync = {
             }
 
             if (result.status === 'success' && result.data) {
+                // Filtra apenas itens da instituição atual
+                const instId = app.currentInstituicao?.id;
+                const itemsToRestore = result.data.filter(row =>                     !instId || row.Instituicao === app.currentInstituicao?.nome
+                );
+
+                if (itemsToRestore.length === 0) {
+                    alert('️ A planilha está vazia ou não tem itens desta unidade.\n\nNenhum dado foi restaurado. Seus dados locais foram mantidos.');
+                    return;
+                }
+
+                // Confirmação final antes de sobrescrever
+                const finalConfirm = `A planilha tem ${itemsToRestore.length} itens.\n\n` +
+                                    `Seus ${localCount} itens locais serão SUBSTITUÍDOS.\n\n` +
+                                    `Deseja prosseguir?`;
+                
+                if (!confirm(finalConfirm)) {
+                    alert('Restauração cancelada. Seus dados locais foram mantidos.');
+                    return;
+                }
+
+                // Limpa banco local e restaura
+                await db.clear();
+                
                 let count = 0;
-                for (const row of result.data) {
+                for (const row of itemsToRestore) {
                     const item = {
                         codigo: row.Codigo,
                         instituicao: row.Instituicao || 'default',
@@ -105,7 +136,8 @@ const sync = {
                     await db.save(item);
                     count++;
                 }
-                alert('Restauração concluída! ' + count + ' itens baixados da nuvem.');
+                
+                alert(`✅ Restauração concluída!\n\n${count} itens baixados da nuvem.`);
                 app.navigate('dashboard');
                 app.updateDashboard();
             } else {
@@ -113,8 +145,7 @@ const sync = {
             }
         } catch (error) {
             console.error('Erro na restauração:', error);
-            alert('ERRO NA RESTAURAÇÃO: ' + error.message);
-        } finally {
+            alert('ERRO NA RESTAURAÇÃO: ' + error.message);        } finally {
             btn.textContent = originalText;
             btn.disabled = false;
         }
