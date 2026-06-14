@@ -113,6 +113,11 @@
                         <p class="font-bold text-yellow-700">Atualização</p>
                         <button onclick="app.forceUpdate()" class="bg-yellow-600 text-white px-4 py-2 rounded w-full mt-2">🔄 Forçar Atualização</button>
                     </div>
+                    <div class="p-4 bg-green-50 rounded border border-green-200">
+    <p class="font-bold text-green-700">Recuperação de Dados</p>
+    <p class="text-xs text-gray-600 mb-2">Baixa todos os dados da planilha do Google</p>
+    <button onclick="sync.restoreFromCloud()" class="bg-green-600 text-white px-4 py-2 rounded w-full">🔄 Restaurar da Nuvem</button>
+</div>
                     <div class="p-4 bg-red-50 rounded border border-red-200">
                         <p class="font-bold text-red-700">Zona de Perigo</p>
                         <button onclick="app.clearData()" class="bg-red-600 text-white px-4 py-2 rounded w-full mt-2">Limpar Tudo</button>
