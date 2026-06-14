@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inventario-v1';
+const CACHE_NAME = 'inventario-v2'; // Versão atualizada para forçar refresh
 const urlsToCache = [
   './',
   './index.html',
@@ -24,6 +24,21 @@ self.addEventListener('fetch', event => {
           return caches.match('./index.html');
         }
       });
+    })
+  );
+});
+
+// Apaga o cache antigo automaticamente
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
     })
   );
 });
