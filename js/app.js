@@ -254,6 +254,83 @@ const app = {
         }
     }
 };
+// User Management Functions
+app.users = {
+    init: async () => {
+        await localforage.config({ name: 'InventarioMusicalDB', storeName: 'users' });
+        // Create default admin if not exists
+        const admin = await localforage.getItem('admin');
+        if (!admin) {
+            await localforage.setItem('admin', {
+                username: 'admin',
+                password: 'musica2026',
+                level: 'admin',
+                name: 'Administrador'
+            });
+        }
+    },
+    
+    create: async (userData) => {
+        await localforage.setItem(userData.username, {
+            username: userData.username,
+            password: userData.password,
+            level: userData.level, // 'admin', 'editor', 'viewer'
+            name: userData.name
+        });
+    },
+    
+    getAll: async () => {
+        const keys = await localforage.keys();
+        const users = [];
+        for (const key of keys) {
+            const user = await localforage.getItem(key);
+            users.push(user);
+        }
+        return users;
+    },
+    
+    delete: async (username) => {
+        if (username === 'admin') {
+            alert('Não é possível remover o usuário admin principal');
+            return;
+        }
+        await localforage.removeItem(username);
+    }
+};
+
+// Access Levels Configuration
+app.accessLevels = {
+    admin: {
+        name: 'Administrador',
+        canCreate: true,
+        canEdit: true,
+        canDelete: true,
+        canBorrow: true,
+        canMaintenance: true,
+        canSync: true,
+        canManageUsers: true
+    },
+    editor: {
+        name: 'Editor',
+        canCreate: true,
+        canEdit: true,
+        canDelete: false,
+        canBorrow: true,
+        canMaintenance: true,
+        canSync: false,
+        canManageUsers: false
+    },
+    viewer: {
+        name: 'Visualizador',
+        canCreate: false,
+        canEdit: false,
+        canDelete: false,
+        canBorrow: false,
+        canMaintenance: false,
+        canSync: false,
+        canManageUsers: false
+    }
+};
 
 // Inicializar
 document.addEventListener('DOMContentLoaded', app.init);
