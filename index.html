@@ -27,8 +27,18 @@
         </header>
 
         <main class="p-4 pb-20">
+            <!-- Login Required Screen -->
+            <section id="view-login-required" class="view">
+                <div class="text-center py-12">
+                    <div class="text-6xl mb-4">🔒</div>
+                    <h2 class="text-2xl font-bold mb-4">Acesso Restrito</h2>
+                    <p class="text-gray-600 mb-8">Faça login para acessar o sistema</p>
+                    <button onclick="app.openLoginModal()" class="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold">Entrar no Sistema</button>
+                </div>
+            </section>
+
             <!-- Dashboard -->
-            <section id="view-dashboard" class="view">
+            <section id="view-dashboard" class="view hidden">
                 <div id="current-instituicao-display" class="bg-blue-50 p-2 rounded mb-4 text-center text-sm font-bold text-blue-900"></div>
                 
                 <h2 class="text-xl font-bold mb-4">Dashboard</h2>
@@ -86,10 +96,12 @@
                 <div id="detail-content" class="space-y-4"></div>
                 <div id="admin-actions" class="hidden mt-6 space-y-3">
                     <h3 class="font-bold border-b pb-2">Ações</h3>
+                    <button onclick="app.editItem()" class="w-full bg-blue-500 text-white p-2 rounded">Editar Item</button>
                     <button onclick="app.updateStatus('Emprestado')" class="w-full bg-yellow-500 text-white p-2 rounded">Registrar Empréstimo</button>
                     <button onclick="app.updateStatus('Manutenção')" class="w-full bg-orange-500 text-white p-2 rounded">Registrar Manutenção</button>
                     <button onclick="app.updateStatus('Ativo')" class="w-full bg-green-500 text-white p-2 rounded">Marcar Ativo/Devolvido</button>
                     <button onclick="app.baixarItem()" class="w-full bg-red-600 text-white p-2 rounded">Dar Baixa</button>
+                    <button onclick="app.deleteItem()" class="w-full bg-gray-800 text-white p-2 rounded">Excluir Permanentemente</button>
                 </div>
             </section>
 
@@ -109,15 +121,15 @@
                         <p class="text-sm text-gray-600 mb-2" id="sync-status">Nunca sincronizado</p>
                         <button onclick="sync.runSync()" class="bg-blue-600 text-white px-4 py-2 rounded w-full">Sincronizar com Google</button>
                     </div>
+                    <div class="p-4 bg-green-50 rounded border border-green-200">
+                        <p class="font-bold text-green-700">Recuperação de Dados</p>
+                        <p class="text-xs text-gray-600 mb-2">Baixa todos os dados da planilha do Google</p>
+                        <button onclick="sync.restoreFromCloud()" class="bg-green-600 text-white px-4 py-2 rounded w-full">🔄 Restaurar da Nuvem</button>
+                    </div>
                     <div class="p-4 bg-yellow-50 rounded border border-yellow-200">
                         <p class="font-bold text-yellow-700">Atualização</p>
                         <button onclick="app.forceUpdate()" class="bg-yellow-600 text-white px-4 py-2 rounded w-full mt-2">🔄 Forçar Atualização</button>
                     </div>
-                    <div class="p-4 bg-green-50 rounded border border-green-200">
-    <p class="font-bold text-green-700">Recuperação de Dados</p>
-    <p class="text-xs text-gray-600 mb-2">Baixa todos os dados da planilha do Google</p>
-    <button onclick="sync.restoreFromCloud()" class="bg-green-600 text-white px-4 py-2 rounded w-full">🔄 Restaurar da Nuvem</button>
-</div>
                     <div class="p-4 bg-red-50 rounded border border-red-200">
                         <p class="font-bold text-red-700">Zona de Perigo</p>
                         <button onclick="app.clearData()" class="bg-red-600 text-white px-4 py-2 rounded w-full mt-2">Limpar Tudo</button>
@@ -129,7 +141,7 @@
         <nav class="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 z-50">
             <button onclick="app.navigate('dashboard')" class="flex flex-col items-center text-blue-900"><span>🏠</span><span class="text-xs">Início</span></button>
             <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span>📷</span><span class="text-xs">Escanear</span></button>
-            <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>️</span><span class="text-xs">Ajustes</span></button>
+            <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>⚙️</span><span class="text-xs">Ajustes</span></button>
         </nav>
 
         <!-- Login Modal -->
@@ -176,12 +188,39 @@
                 <h3 class="text-lg font-bold mb-4">Gerenciar Unidades/Instituições</h3>
                 <div class="mb-4 p-3 bg-gray-50 rounded">
                     <h4 class="font-bold text-sm mb-2">Nova Unidade</h4>
-                    <input type="text" id="new-inst-nome" placeholder="Nome da unidade (ex: Escola de Música - Centro)" class="w-full p-2 border rounded mb-2">
+                    <input type="text" id="new-inst-nome" placeholder="Nome da unidade" class="w-full p-2 border rounded mb-2">
                     <input type="text" id="new-inst-cidade" placeholder="Cidade" class="w-full p-2 border rounded mb-2">
                     <button onclick="app.createInstituicao()" class="w-full bg-green-600 text-white p-2 rounded">Criar Unidade</button>
                 </div>
                 <div id="instituicoes-list" class="space-y-2"></div>
                 <button onclick="app.closeInstituicaoManagement()" class="w-full bg-gray-300 p-2 rounded mt-4">Fechar</button>
+            </div>
+        </div>
+
+        <!-- Edit Item Modal -->
+        <div id="edit-item-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg w-11/12 max-w-md max-h-[80vh] overflow-y-auto">
+                <h3 class="text-lg font-bold mb-4">Editar Item</h3>
+                <input type="text" id="edit-codigo" class="w-full p-2 border rounded mb-3 bg-gray-100" readonly>
+                <label class="block text-sm font-medium mb-1">Categoria</label>
+                <select id="edit-categoria" class="w-full p-2 border rounded mb-3">
+                    <option value="Instrumento">Instrumento Musical</option>
+                    <option value="Eletronico">Eletrônico</option>
+                    <option value="Mobiliario">Mobiliário</option>
+                    <option value="Acessorio">Acessório</option>
+                    <option value="Outro">Outro</option>
+                </select>
+                <label class="block text-sm font-medium mb-1">Descrição</label>
+                <input type="text" id="edit-descricao" class="w-full p-2 border rounded mb-3">
+                <label class="block text-sm font-medium mb-1">Nova Foto (opcional)</label>
+                <input type="file" id="edit-foto" accept="image/*" capture="environment" class="w-full p-2 border rounded mb-2">
+                <img id="edit-foto-preview" class="w-full h-32 object-cover rounded mb-3" style="display:none;">
+                <label class="block text-sm font-medium mb-1">Observações</label>
+                <textarea id="edit-obs" class="w-full p-2 border rounded mb-3 bg-yellow-50" rows="3"></textarea>
+                <div class="flex gap-2">
+                    <button onclick="app.cancelEditItem()" class="flex-1 bg-gray-300 p-2 rounded">Cancelar</button>
+                    <button onclick="app.saveEditItem()" class="flex-1 bg-blue-600 text-white p-2 rounded">Salvar</button>
+                </div>
             </div>
         </div>
     </div>
