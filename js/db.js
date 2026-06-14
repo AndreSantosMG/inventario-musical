@@ -2,11 +2,16 @@ const db = {
     init: async () => {
         await localforage.config({ name: 'InventarioMusicalDB', storeName: 'items' });
     },
-    getAll: async () => {
+    getAll: async (instituicao = null) => {
         const keys = await localforage.keys();
         const items = [];
         for (const key of keys) {
-            items.push(await localforage.getItem(key));
+            const item = await localforage.getItem(key);
+            if (instituicao) {
+                if (item.instituicao === instituicao) items.push(item);
+            } else {
+                items.push(item);
+            }
         }
         return items.sort((a, b) => b.dataEntrada.localeCompare(a.dataEntrada));
     },
