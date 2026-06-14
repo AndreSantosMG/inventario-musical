@@ -2,7 +2,7 @@ const utils = {
     generateCode: () => {
         const year = new Date().getFullYear();
         const random = Math.floor(10000 + Math.random() * 90000);
-        return `MUS-${year}-${random}`;
+        return `FDSF-${year}-${random}`;
     },
     compressImage: (file) => {
         return new Promise((resolve) => {
@@ -46,5 +46,72 @@ const utils = {
         const tableData = items.map(i => [i.codigo, i.instituicaoNome || '', i.categoria, i.descricao, i.status]);
         doc.autoTable({ head: [['Código', 'Unidade', 'Categoria', 'Descrição', 'Status']], body: tableData, startY: 20 });
         doc.save("inventario.pdf");
+    },
+    exportCSVReport: (data, nomeArquivo) => {        if (!data || data.length === 0) return;
+        const headers = Object.keys(data[0]);
+        const rows = data.map(item => headers.map(h => item[h] || ''));
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers, ...rows].map(e => e.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${nomeArquivo}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    },
+    exportXLSX: (data, nomeArquivo, titulo, instituicao, dataGeracao, usuario) => {
+        if (typeof XLSX === 'undefined') {
+            alert('Biblioteca XLSX não carregada. Verifique sua conexão com a internet.');
+            return;
+        }
+        const wb = XLSX.utils.book_new();
+        
+        // Cabeçalho informativo
+        const headerData = [
+            [titulo],
+            [`Instituição: ${instituicao}`],
+            [`Data de geração: ${dataGeracao}`],
+            [`Gerado por: ${usuario}`],
+            [`Total de registros: ${data.length}`],
+            []
+        ];
+        
+        // Dados
+        const wsData = [...headerData, ...data.map(item => Object.values(item))];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        
+        // Largura das colunas
+        const headers = Object.keys(data[0]);
+        ws['!cols'] = headers.map(() => ({ wch: 20 }));
+        
+        XLSX.utils.book_append_sheet(wb, ws, titulo.substring(0, 30));
+        XLSX.writeFile(wb, `${nomeArquivo}.xlsx`);
+    },
+    exportPDFReport: (data, nomeArquivo, titulo, instituicao, dataGeracao, usuario) => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape', 'mm', 'a4');
+        
+        // Cabeçalho
+        doc.setFontSize(16);
+        doc.text(titulo, 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Instituição: ${instituicao}`, 14, 22);
+        doc.text(`Data: ${dataGeracao}`, 14, 27);        doc.text(`Gerado por: ${usuario}`, 14, 32);
+        doc.text(`Total de registros: ${data.length}`, 14, 37);
+        
+        // Tabela
+        const headers = [Object.keys(data[0])];
+        const body = data.map(item => Object.values(item).map(v => String(v || '-')));
+        
+        doc.autoTable({
+            head: headers,
+            body: body,
+            startY: 42,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [30, 58, 138], textColor: 255 },
+            alternateRowStyles: { fillColor: [240, 245, 255] }
+        });
+        
+        doc.save(`${nomeArquivo}.pdf`);
     }
 };
