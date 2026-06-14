@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inventario-v13';
+const CACHE_NAME = 'inventario-v15';
 const urlsToCache = [
   './', './index.html', './manifest.json', './css/style.css',
   './js/app.js', './js/db.js', './js/utils.js', './js/sync.js'
