@@ -1,42 +1,40 @@
 const sync = {
-    GAS_URL: 'https://script.google.com/macros/s/AKfycbxX40Cj4xveniBJ-yPYIw8QiTxbWlKMTV1vX2hA_Wn08azTm3KmgvsDd3A0_YFDBCHjQg/exec', 
+    GAS_URL: 'https://script.google.com/macros/s/SEU_ID_DE_IMPLANTACAO_AQUI/exec', 
     
     runSync: async () => {
         const btn = document.querySelector('button[onclick="sync.runSync()"]');
         const originalText = btn.textContent;
         btn.textContent = 'Sincronizando...';
         btn.disabled = true;
-        document.getElementById('sync-status').textContent = 'Tentando conectar...';
 
         try {
-            // Verifica se a URL está configurada
             if (!sync.GAS_URL || sync.GAS_URL.includes('SEU_ID')) {
-                throw new Error('URL do script não configurada no arquivo sync.js');
+                throw new Error('URL do script não configurada');
             }
 
-            const localItems = await db.getAll();
-            console.log('Enviando itens:', localItems.length);
-
+            // Envia apenas os itens da instituição atual
+            const localItems = await db.getAll(app.currentInstituicao?.id);
+            
             const response = await fetch(sync.GAS_URL, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'sync', items: localItems }),
-                // Importante para evitar erros de CORS em alguns navegadores
+                body: JSON.stringify({ 
+                    action: 'sync', 
+                    items: localItems,
+                    instituicao: app.currentInstituicao 
+                }),
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
             });
 
-            // Verifica se a resposta é OK (status 200)
             if (!response.ok) {
-                throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
+                throw new Error(`Erro HTTP ${response.status}`);
             }
 
-            // Tenta ler o texto primeiro para ver se é JSON válido
             const textResponse = await response.text();
             let result;
             try {
                 result = JSON.parse(textResponse);
             } catch (e) {
-                // Se não for JSON, mostra o que o Google retornou (geralmente HTML de erro)
-                throw new Error('Resposta inválida do servidor. Retorno: ' + textResponse.substring(0, 200));
+                throw new Error('Resposta inválida: ' + textResponse.substring(0, 200));
             }
 
             if (result.status === 'success') {
@@ -51,12 +49,11 @@ const sync = {
                     alert('✅ Sincronização concluída!');
                 }
             } else {
-                throw new Error(result.message || 'Erro desconhecido no script');
+                throw new Error(result.message || 'Erro desconhecido');
             }
         } catch (error) {
             console.error('Erro detalhado:', error);
-            // Mostra o erro real na tela para podermos corrigir
-            alert('❌ ERRO NA SINCRONIZAÇÃO:\n\n' + error.message + '\n\nTire um print desta mensagem e envie para suporte.');
+            alert('❌ ERRO: ' + error.message);
             document.getElementById('sync-status').textContent = 'Erro: ' + error.message;
         } finally {
             btn.textContent = originalText;
