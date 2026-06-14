@@ -8,7 +8,6 @@ const app = {
         await db.init();
         app.users.init();
         
-        // Restaurar sessão automaticamente
         const savedUserKey = localStorage.getItem('sessionUser');
         if (savedUserKey) {
             const user = app.users.get(savedUserKey);
@@ -22,9 +21,17 @@ const app = {
 
         app.navigate('dashboard');
         app.updateDashboard();
-        
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(console.error);
+    },
+
+    forceUpdate: () => {
+        if (confirm('Isso vai limpar o cache e recarregar a página. OK?')) {
+            localStorage.removeItem('sessionUser');
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name));
+                });
+            }
+            window.location.reload(true);
         }
     },
 
@@ -44,7 +51,7 @@ const app = {
             app.isLoggedIn = false;
             app.currentUser = null;
             localStorage.removeItem('sessionUser');
-            document.getElementById('btn-login-toggle').textContent = '🔒';
+            document.getElementById('btn-login-toggle').textContent = '';
             document.getElementById('admin-actions').classList.add('hidden');
             app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
             alert('Deslogado.');
@@ -62,7 +69,7 @@ const app = {
         if (user && user.password === p) {
             app.isLoggedIn = true;
             app.currentUser = user;
-            localStorage.setItem('sessionUser', u); // Salva a sessão
+            localStorage.setItem('sessionUser', u);
             document.getElementById('btn-login-toggle').textContent = `🔓 ${user.name}`;
             document.getElementById('login-modal').classList.add('hidden');
             
@@ -172,7 +179,6 @@ const app = {
             </div>
         `;
 
-        // Gera o QR Code após o HTML ser inserido
         setTimeout(() => {
             new QRCode(document.getElementById("detail-qrcode"), {
                 text: item.codigo,
@@ -232,7 +238,6 @@ const app = {
         document.getElementById('dash-ativos').textContent = items.filter(i => i.status === 'Ativo').length;
     },
 
-    // FUNÇÃO DE IMPRESSÃO DE ETIQUETAS
     printLabels: async () => {
         const items = await db.getAll();
         if (items.length === 0) {
@@ -240,12 +245,10 @@ const app = {
             return;
         }
 
-        // Abre uma nova janela para impressão
         const printWindow = window.open('', '_blank');
         
         let labelsHtml = '';
         items.forEach(item => {
-            // Usa API pública para gerar a imagem do QR Code na impressão
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.codigo)}`;
             labelsHtml += `
                 <div class="label">
@@ -290,7 +293,7 @@ const app = {
                 <div class="no-print" style="text-align:center; margin-bottom:20px;">
                     <h2>Pré-visualização de Etiquetas (${items.length} itens)</h2>
                     <p>Clique no botão abaixo ou pressione Ctrl+P para imprimir.</p>
-                    <button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">️ Imprimir Agora</button>
+                    <button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">🖨️ Imprimir Agora</button>
                 </div>
                 <div class="container">
                     ${labelsHtml}
