@@ -207,28 +207,44 @@ const app = {
 
     closeLogin: () => { document.getElementById('login-modal').classList.add('hidden'); },
 
-    applyPermissions: (perms) => {
-        const addBtn = document.querySelector('button[onclick="app.navigate(\'add\')"]');
-        if (addBtn) addBtn.style.display = perms.canCreate ? 'block' : 'none';
-        
-        const syncBtn = document.querySelector('button[onclick="sync.runSync()"]');
-        if (syncBtn) syncBtn.style.display = perms.canSync ? 'block' : 'none';
-        
-        const userMgmtBtn = document.getElementById('btn-user-management');
-        if (userMgmtBtn) userMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
+   applyPermissions: (perms) => {
+    const addBtn = document.querySelector('button[onclick="app.navigate(\'add\')"]');
+    if (addBtn) addBtn.style.display = perms.canCreate ? 'block' : 'none';
+    
+    const syncBtn = document.querySelector('button[onclick="sync.runSync()"]');
+    if (syncBtn) syncBtn.style.display = perms.canSync ? 'block' : 'none';
+    
+    const userMgmtBtn = document.getElementById('btn-user-management');
+    if (userMgmtBtn) userMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
 
-        const instMgmtBtn = document.getElementById('btn-instituicao-management');
-        if (instMgmtBtn) instMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
+    const instMgmtBtn = document.getElementById('btn-instituicao-management');
+    if (instMgmtBtn) instMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
 
-        const printBtn = document.querySelector('button[onclick="app.printLabels()"]');
-        if (printBtn) printBtn.style.display = perms.canCreate ? 'block' : 'none';
+    const printBtn = document.querySelector('button[onclick="app.printLabels()"]');
+    if (printBtn) printBtn.style.display = perms.canCreate ? 'block' : 'none';
 
-        const reportsBtn = document.getElementById('btn-reports');
-        if (reportsBtn) reportsBtn.style.display = perms.canManageUsers ? 'block' : 'none';
+    const reportsBtn = document.getElementById('btn-reports');
+    if (reportsBtn) {
+        if (perms.canManageUsers) {
+            reportsBtn.classList.remove('hidden');
+            reportsBtn.style.display = 'block';
+        } else {
+            reportsBtn.classList.add('hidden');
+            reportsBtn.style.display = 'none';
+        }
+    }
 
-        const auditBtn = document.getElementById('btn-audit');
-        if (auditBtn) auditBtn.style.display = perms.canCreate ? 'block' : 'none';
-    },
+    const auditBtn = document.getElementById('btn-audit');
+    if (auditBtn) {
+        if (perms.canCreate) {
+            auditBtn.classList.remove('hidden');
+            auditBtn.style.display = 'block';
+        } else {
+            auditBtn.classList.add('hidden');
+            auditBtn.style.display = 'none';
+        }
+    }
+},
 
     saveItem: async (e) => {
         e.preventDefault();
