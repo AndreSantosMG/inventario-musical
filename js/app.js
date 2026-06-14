@@ -42,11 +42,11 @@ const app = {
 
     showLoginScreen: () => {
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
-        document.getElementById('view-login-required').classList.remove('hidden');
+        const loginView = document.getElementById('view-login-required');
+        if (loginView) loginView.classList.remove('hidden');
         const display = document.getElementById('current-instituicao-display');
         if (display) display.classList.add('hidden');
     },
-
     forceUpdate: () => {
         if (confirm('Isso vai limpar o cache e recarregar. OK?')) {
             localStorage.clear();
@@ -64,7 +64,8 @@ const app = {
         }
 
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
-        document.getElementById(`view-${viewId}`).classList.remove('hidden');
+        const target = document.getElementById(`view-${viewId}`);
+        if (target) target.classList.remove('hidden');
         
         if (viewId === 'dashboard') {
             app.renderList();
@@ -76,7 +77,6 @@ const app = {
         if (viewId === 'scanner') app.startScanner();
     },
 
-    // NOVA: Gera código com prefixo FDSF
     generateCode: () => {
         const year = new Date().getFullYear();
         const random = Math.floor(10000 + Math.random() * 90000);
@@ -85,6 +85,7 @@ const app = {
 
     updateInstituicaoDisplay: () => {
         const display = document.getElementById('current-instituicao-display');
+        if (!display) return;
         if (app.currentInstituicao) {
             display.textContent = `📍 ${app.currentInstituicao.nome} - ${app.currentInstituicao.cidade || ''}`;
             display.classList.remove('hidden');
@@ -95,13 +96,14 @@ const app = {
 
     toggleLogin: () => {
         if (app.isLoggedIn) {
-            if (confirm('Deseja sair do sistema?')) {
-                app.isLoggedIn = false;
+            if (confirm('Deseja sair do sistema?')) {                app.isLoggedIn = false;
                 app.currentUser = null;
                 app.currentInstituicao = null;
                 localStorage.removeItem('sessionData');
-                document.getElementById('btn-login-toggle').textContent = '🔒';
-                document.getElementById('admin-actions').classList.add('hidden');
+                const btn = document.getElementById('btn-login-toggle');
+                if (btn) btn.textContent = '🔒';
+                const adminActions = document.getElementById('admin-actions');
+                if (adminActions) adminActions.classList.add('hidden');
                 app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
                 app.showLoginScreen();
             }
@@ -111,32 +113,56 @@ const app = {
     },
 
     openLoginModal: () => {
-        // Popula dropdown de instituições
-        const instituicoes = app.instituicoes.getAll();
-        const selectInst = document.getElementById('login-instituicao');
-        selectInst.innerHTML = '<option value="">-- Selecione sua unidade --</option>';
-        instituicoes.forEach(inst => {
-            const option = document.createElement('option');
-            option.value = inst.id;
-            option.textContent = `${inst.nome} - ${inst.cidade || ''}`;
-            selectInst.appendChild(option);
-        });
+        try {
+            app.users.init();
+            app.instituicoes.init();
 
-        // Popula dropdown de usuários
-        const usuarios = app.users.getAll();
-        const selectUser = document.getElementById('login-user-select');
-        selectUser.innerHTML = '<option value="">-- Selecione seu usuário --</option>';
-        usuarios.forEach(user => {
-            const option = document.createElement('option');
-            option.value = user.username;
-            option.textContent = `${user.name} (${app.accessLevels[user.level].name})`;
-            selectUser.appendChild(option);
-        });
+            const instituicoes = app.instituicoes.getAll();
+            const selectInst = document.getElementById('login-instituicao');
+            if (selectInst) {
+                selectInst.innerHTML = '<option value="">-- Selecione sua unidade --</option>';
+                instituicoes.forEach(inst => {
+                    const option = document.createElement('option');
+                    option.value = inst.id;
+                    option.textContent = `${inst.nome} - ${inst.cidade || ''}`;
+                    selectInst.appendChild(option);
+                });
+            }
 
-        // Limpa senha
-        document.getElementById('login-pass').value = '';
-        
-        document.getElementById('login-modal').classList.remove('hidden');
+            const usuarios = app.users.getAll();
+            const selectUser = document.getElementById('login-user-select');
+            if (selectUser) {
+                selectUser.innerHTML = '<option value="">-- Selecione seu usuário --</option>';
+                
+                if (usuarios.length === 0) {
+                    app.users.init();
+                    const usuariosAtualizados = app.users.getAll();
+                    usuariosAtualizados.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.username;
+                        option.textContent = `${user.name} (${app.accessLevels[user.level].name})`;
+                        selectUser.appendChild(option);
+                    });
+                } else {
+                    usuarios.forEach(user => {
+                        const option = document.createElement('option');                        option.value = user.username;
+                        option.textContent = `${user.name} (${app.accessLevels[user.level].name})`;
+                        selectUser.appendChild(option);
+                    });
+                }
+            }
+
+            const passField = document.getElementById('login-pass');
+            if (passField) passField.value = '';
+            
+            const modal = document.getElementById('login-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Erro ao abrir modal de login:', error);
+            alert('Erro ao abrir tela de login. Tente recarregar a página.');
+        }
     },
 
     doLogin: () => {
@@ -168,14 +194,15 @@ const app = {
         
         app.isLoggedIn = true;
         app.currentUser = user;
-        app.currentInstituicao = instituicao;
-        
+        app.currentInstituicao = instituicao;        
         localStorage.setItem('sessionData', JSON.stringify({
             username: username,
             instituicao: instituicao
         }));
         
-        document.getElementById('btn-login-toggle').textContent = `🔓 ${user.name}`;
+        const btn = document.getElementById('btn-login-toggle');
+        if (btn) btn.textContent = ` ${user.name}`;
+        
         document.getElementById('login-modal').classList.add('hidden');
         
         app.applyPermissions(app.accessLevels[user.level]);
@@ -183,7 +210,6 @@ const app = {
         app.updateDashboard();
         app.updateInstituicaoDisplay();
         
-        // Mensagem de boas-vindas
         const hora = new Date().getHours();
         let saudacao = 'Olá';
         if (hora < 12) saudacao = 'Bom dia';
@@ -217,8 +243,7 @@ const app = {
     },
 
     saveItem: async (e) => {
-        e.preventDefault();
-        if (!app.isLoggedIn || !app.currentInstituicao) {
+        e.preventDefault();        if (!app.isLoggedIn || !app.currentInstituicao) {
             alert('Faça login e selecione uma unidade');
             return;
         }
@@ -257,6 +282,7 @@ const app = {
     renderList: async () => {
         const items = await db.getAll(app.currentInstituicao?.id);
         const container = document.getElementById('items-list');
+        if (!container) return;
         container.innerHTML = '';
         
         const filter = document.getElementById('search-input').value.toLowerCase();
@@ -266,7 +292,6 @@ const app = {
             container.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhum item cadastrado nesta unidade</p>';
             return;
         }
-
         filtered.forEach(item => {
             const temObs = item.observacao && item.observacao.trim() !== '';
             const div = document.createElement('div');
@@ -296,6 +321,7 @@ const app = {
         
         app.currentItem = item;
         const container = document.getElementById('detail-content');
+        if (!container) return;
         
         let historicoHtml = item.historico.map(h => `<li class="text-xs text-gray-600">• ${h}</li>`).join('');
         const obsText = (item.observacao && item.observacao.trim() !== '') ? item.observacao : 'Nenhuma observação registrada.';
@@ -315,8 +341,7 @@ const app = {
             <p class="text-xs text-blue-600 font-bold">📍 ${item.instituicaoNome || 'Unidade não identificada'} ${item.instituicaoCidade ? '- ' + item.instituicaoCidade : ''}</p>
             <div class="bg-gray-100 p-3 rounded mt-2">
                 <p><strong>Status:</strong> ${item.status}</p>
-                <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>
-            </div>
+                <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>            </div>
             
             <div class="bg-yellow-50 p-3 rounded mt-2 border border-yellow-200">
                 <div class="flex justify-between items-center mb-1">
@@ -340,11 +365,15 @@ const app = {
         `;
 
         setTimeout(() => {
-            new QRCode(document.getElementById("detail-qrcode"), {
-                text: item.codigo,
-                width: 150,
-                height: 150
-            });
+            const qrContainer = document.getElementById("detail-qrcode");
+            if (qrContainer) {
+                qrContainer.innerHTML = '';
+                new QRCode(qrContainer, {
+                    text: item.codigo,
+                    width: 150,
+                    height: 150
+                });
+            }
         }, 100);
 
         const btnEditObs = document.getElementById('btn-edit-obs');
@@ -354,12 +383,14 @@ const app = {
             btnEditObs.classList.add('hidden');
         }
 
-        if (app.isLoggedIn) {
-            document.getElementById('admin-actions').classList.remove('hidden');
-        } else {
-            document.getElementById('admin-actions').classList.add('hidden');
-        }
-        app.navigate('detail');
+        const adminActions = document.getElementById('admin-actions');
+        if (adminActions) {
+            if (app.isLoggedIn) {
+                adminActions.classList.remove('hidden');
+            } else {
+                adminActions.classList.add('hidden');
+            }
+        }        app.navigate('detail');
     },
 
     editObservation: async () => {
@@ -409,7 +440,6 @@ const app = {
         app.navigate('dashboard');
         app.updateDashboard();
     },
-
     editItem: async () => {
         if (!app.isLoggedIn || !app.currentUser) {
             alert('Faça login para editar');
@@ -421,11 +451,7 @@ const app = {
         document.getElementById('edit-descricao').value = item.descricao;
         document.getElementById('edit-obs').value = item.observacao || '';
         const preview = document.getElementById('edit-foto-preview');
-        if (item.foto && !item.foto.startsWith('data:image')) {
-            // Foto é URL do Drive
-            preview.src = item.foto;
-            preview.style.display = 'block';
-        } else if (item.foto) {
+        if (item.foto) {
             preview.src = item.foto;
             preview.style.display = 'block';
         } else {
@@ -462,8 +488,7 @@ const app = {
         if (!app.isLoggedIn || !app.currentUser || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem excluir itens');
             return;
-        }
-        const item = app.currentItem;
+        }        const item = app.currentItem;
         if (!confirm(`ATENÇÃO! Excluir permanentemente o item ${item.codigo}?\n\n${item.descricao}\n\nEsta ação NÃO pode ser desfeita!`)) {
             return;
         }
@@ -478,10 +503,14 @@ const app = {
 
     updateDashboard: async () => {
         const items = await db.getAll(app.currentInstituicao?.id);
-        document.getElementById('dash-total').textContent = items.length;
-        document.getElementById('dash-emprestados').textContent = items.filter(i => i.status === 'Emprestado').length;
-        document.getElementById('dash-manutencao').textContent = items.filter(i => i.status === 'Manutenção').length;
-        document.getElementById('dash-ativos').textContent = items.filter(i => i.status === 'Ativo').length;
+        const dashTotal = document.getElementById('dash-total');
+        const dashEmp = document.getElementById('dash-emprestados');
+        const dashMan = document.getElementById('dash-manutencao');
+        const dashAti = document.getElementById('dash-ativos');
+        if (dashTotal) dashTotal.textContent = items.length;
+        if (dashEmp) dashEmp.textContent = items.filter(i => i.status === 'Emprestado').length;
+        if (dashMan) dashMan.textContent = items.filter(i => i.status === 'Manutenção').length;
+        if (dashAti) dashAti.textContent = items.filter(i => i.status === 'Ativo').length;
     },
 
     printLabels: async () => {
@@ -508,8 +537,7 @@ const app = {
         printWindow.document.write(`
             <html>
             <head>
-                <title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title>
-                <style>
+                <title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title>                <style>
                     body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
                     .container { display: flex; flex-wrap: wrap; gap: 15px; }
                     .label { border: 1px dashed #ccc; padding: 10px; width: 180px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }
@@ -523,7 +551,7 @@ const app = {
             <body>
                 <div class="no-print" style="text-align:center; margin-bottom:20px;">
                     <h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2>
-                    <button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">️ Imprimir Agora</button>
+                    <button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">🖨️ Imprimir Agora</button>
                 </div>
                 <div class="container">${labelsHtml}</div>
             </body>
@@ -558,8 +586,7 @@ const app = {
         if (items.length > 0) {
             const confirmMsg = `ATENÇÃO! Você tem ${items.length} itens cadastrados localmente.\n\nAntes de limpar, deseja fazer backup na nuvem?\n\nOK = Fazer backup e depois limpar\nCancelar = Abortar operação`;
             if (confirm(confirmMsg)) {
-                try {
-                    await sync.runSync();
+                try {                    await sync.runSync();
                     alert('Backup concluído! Agora os dados serão limpos.');
                 } catch (error) {
                     if (!confirm('Erro no backup. Deseja limpar mesmo assim? (Os dados serão PERDIDOS)')) {
@@ -585,6 +612,7 @@ const app = {
         app.users.init();
         const users = app.users.getAll();
         const container = document.getElementById('users-list');
+        if (!container) return;
         container.innerHTML = '';
         users.forEach(user => {
             const div = document.createElement('div');
@@ -607,7 +635,6 @@ const app = {
     },
 
     closeUserManagement: () => { document.getElementById('user-management-modal').classList.add('hidden'); },
-
     createUser: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem criar usuários');
@@ -657,8 +684,7 @@ const app = {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
         if (confirm(`Excluir usuário ${username}?\n\nEsta ação revoga o acesso permanentemente.`)) {
             app.users.delete(username);
-            app.openUserManagement();
-        }
+            app.openUserManagement();        }
     },
 
     openInstituicaoManagement: () => {
@@ -669,6 +695,7 @@ const app = {
         app.instituicoes.init();
         const instituicoes = app.instituicoes.getAll();
         const container = document.getElementById('instituicoes-list');
+        if (!container) return;
         container.innerHTML = '';
         instituicoes.forEach(inst => {
             const div = document.createElement('div');
@@ -706,7 +733,6 @@ const app = {
             app.openInstituicaoManagement();
         }
     },
-
     users: {
         init: () => {
             if (!localStorage.getItem('user_admin')) {
@@ -720,12 +746,22 @@ const app = {
             const users = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && key.startsWith('user_')) users.push(JSON.parse(localStorage.getItem(key)));
+                if (key && key.startsWith('user_')) {
+                    try {
+                        users.push(JSON.parse(localStorage.getItem(key)));
+                    } catch (e) {}
+                }
             }
             return users;
         },
-        get: (username) => { const data = localStorage.getItem(`user_${username}`); return data ? JSON.parse(data) : null; },
-        delete: (username) => { if (username === 'admin') { alert('Não pode excluir o admin principal'); return; } localStorage.removeItem(`user_${username}`); }
+        get: (username) => { 
+            const data = localStorage.getItem(`user_${username}`); 
+            return data ? JSON.parse(data) : null; 
+        },
+        delete: (username) => { 
+            if (username === 'admin') { alert('Não pode excluir o admin principal'); return; } 
+            localStorage.removeItem(`user_${username}`); 
+        }
     },
 
     instituicoes: {
@@ -745,12 +781,21 @@ const app = {
             const instituicoes = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && key.startsWith('inst_')) instituicoes.push(JSON.parse(localStorage.getItem(key)));
+                if (key && key.startsWith('inst_')) {
+                    try {                        instituicoes.push(JSON.parse(localStorage.getItem(key)));
+                    } catch (e) {}
+                }
             }
             return instituicoes;
         },
-        get: (id) => { const data = localStorage.getItem(`inst_${id}`); return data ? JSON.parse(data) : null; },
-        delete: (id) => { if (id === 'default') { alert('Não pode excluir a unidade padrão'); return; } localStorage.removeItem(`inst_${id}`); }
+        get: (id) => { 
+            const data = localStorage.getItem(`inst_${id}`); 
+            return data ? JSON.parse(data) : null; 
+        },
+        delete: (id) => { 
+            if (id === 'default') { alert('Não pode excluir a unidade padrão'); return; } 
+            localStorage.removeItem(`inst_${id}`); 
+        }
     },
 
     accessLevels: {
