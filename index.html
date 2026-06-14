@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
     <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-lg relative">
@@ -21,7 +22,7 @@
             <div class="flex gap-2">
                 <button onclick="app.navigate('scanner')" class="p-2 bg-blue-700 rounded">📷</button>
                 <button id="btn-login-toggle" onclick="app.toggleLogin()" class="p-2 bg-blue-700 rounded"></button>
-                <button id="btn-user-management" onclick="app.openUserManagement()" class="p-2 bg-blue-700 rounded hidden"></button>
+                <button id="btn-user-management" onclick="app.openUserManagement()" class="p-2 bg-blue-700 rounded hidden">👥</button>
                 <button id="btn-instituicao-management" onclick="app.openInstituicaoManagement()" class="p-2 bg-blue-700 rounded hidden">🏫</button>
             </div>
         </header>
@@ -46,14 +47,14 @@
                     <div class="bg-green-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-ativos">0</p><p class="text-sm">Ativos</p></div>
                 </div>
                 <div class="flex gap-2 mb-4">
-                    <input type="text" id="search-input" placeholder="Buscar..." class="flex-1 p-2 border rounded" oninput="app.filterItems()">
-                    <button onclick="app.exportCSV()" class="bg-green-600 text-white p-2 rounded text-sm">CSV</button>
+                    <input type="text" id="search-input" placeholder="Buscar..." class="flex-1 p-2 border rounded" oninput="app.filterItems()">                    <button onclick="app.exportCSV()" class="bg-green-600 text-white p-2 rounded text-sm">CSV</button>
                     <button onclick="app.exportPDF()" class="bg-red-600 text-white p-2 rounded text-sm">PDF</button>
                 </div>
                 <div class="grid grid-cols-2 gap-2 mb-4">
                     <button onclick="app.navigate('add')" class="bg-blue-600 text-white p-3 rounded-lg font-bold">+ Novo Item</button>
                     <button onclick="app.printLabels()" class="bg-purple-600 text-white p-3 rounded-lg font-bold">🖨️ Etiquetas</button>
                 </div>
+                <button id="btn-reports" onclick="app.navigate('reports')" class="hidden w-full bg-indigo-600 text-white p-3 rounded-lg font-bold mb-4"> Relatórios Gerenciais</button>
                 <div id="items-list" class="space-y-3"></div>
             </section>
 
@@ -96,6 +97,14 @@
                     <button onclick="app.deleteItem()" class="w-full bg-gray-800 text-white p-2 rounded">Excluir Permanentemente</button>
                 </div>
             </section>
+            <!-- NOVA VIEW: Relatórios -->
+            <section id="view-reports" class="view hidden">
+                <button onclick="app.navigate('dashboard')" class="mb-4 text-blue-600">← Voltar</button>
+                <h2 class="text-xl font-bold mb-2">📊 Relatórios Gerenciais</h2>
+                <p class="text-sm text-gray-600 mb-4">Gere relatórios detalhados para envio e análise</p>
+                
+                <div id="reports-list" class="space-y-3"></div>
+            </section>
 
             <section id="view-scanner" class="view hidden">
                 <button onclick="app.stopScanner(); app.navigate('dashboard')" class="mb-4 text-blue-600">← Fechar</button>
@@ -118,7 +127,7 @@
                     </div>
                     <div class="p-4 bg-yellow-50 rounded border border-yellow-200">
                         <p class="font-bold text-yellow-700">Atualização</p>
-                        <button onclick="app.forceUpdate()" class="bg-yellow-600 text-white px-4 py-2 rounded w-full mt-2">🔄 Forçar Atualização</button>
+                        <button onclick="app.forceUpdate()" class="bg-yellow-600 text-white px-4 py-2 rounded w-full mt-2"> Forçar Atualização</button>
                     </div>
                     <div class="p-4 bg-red-50 rounded border border-red-200">
                         <p class="font-bold text-red-700">Zona de Perigo</p>
@@ -130,14 +139,13 @@
 
         <nav class="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 z-50">
             <button onclick="app.navigate('dashboard')" class="flex flex-col items-center text-blue-900"><span>🏠</span><span class="text-xs">Início</span></button>
-            <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span></span><span class="text-xs">Escanear</span></button>
+            <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span>📷</span><span class="text-xs">Escanear</span></button>
             <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>⚙️</span><span class="text-xs">Ajustes</span></button>
         </nav>
 
         <!-- Login Modal -->
         <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-            <div class="bg-white p-6 rounded-lg w-11/12 max-w-sm">
-                <h3 class="text-lg font-bold mb-4">Acesso ao Sistema</h3>
+            <div class="bg-white p-6 rounded-lg w-11/12 max-w-sm">                <h3 class="text-lg font-bold mb-4">Acesso ao Sistema</h3>
                 <label class="block text-sm font-medium mb-1">Unidade/Instituição</label>
                 <select id="login-instituicao" class="w-full p-2 border rounded mb-3"></select>
                 <label class="block text-sm font-medium mb-1">Usuário</label>
@@ -186,7 +194,6 @@
                 <button onclick="app.closeInstituicaoManagement()" class="w-full bg-gray-300 p-2 rounded mt-4">Fechar</button>
             </div>
         </div>
-
         <!-- Edit Item Modal -->
         <div id="edit-item-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
             <div class="bg-white p-6 rounded-lg w-11/12 max-w-md max-h-[80vh] overflow-y-auto">
@@ -202,7 +209,7 @@
                 </select>
                 <label class="block text-sm font-medium mb-1">Descrição</label>
                 <input type="text" id="edit-descricao" class="w-full p-2 border rounded mb-3">
-                <label class="block text-sm font-medium mb-1">Nova Foto (opcional - substitui a anterior)</label>
+                <label class="block text-sm font-medium mb-1">Nova Foto (opcional)</label>
                 <input type="file" id="edit-foto" accept="image/*" capture="environment" class="w-full p-2 border rounded mb-2">
                 <img id="edit-foto-preview" class="w-full h-32 object-cover rounded mb-3" style="display:none;">
                 <label class="block text-sm font-medium mb-1">Observações</label>
