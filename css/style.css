@@ -1,0 +1,5 @@
+body { -webkit-tap-highlight-color: transparent; }
+.view { animation: fadeIn 0.3s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+#reader video { border-radius: 8px; width: 100% !important; }
+#qrcode-container img { margin: 0 auto; }
