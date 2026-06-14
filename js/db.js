@@ -9,10 +9,14 @@ const db = {
             const item = await localforage.getItem(key);
             if (!item || !item.codigo) continue;
             
-            // Se não tem instituicao (item antigo), inclui em todas as consultas
-            if (!item.instituicao) {
+            // Se não especificar instituição, retorna tudo
+            if (!instituicaoId) {
                 items.push(item);
-            } else if (!instituicaoId || item.instituicao === instituicaoId) {
+            }
+            // Se especificar, filtra por ID ou por nome (flexível)
+            else if (item.instituicao === instituicaoId || 
+                     item.instituicaoNome === instituicaoId ||
+                     !item.instituicao) {
                 items.push(item);
             }
         }
