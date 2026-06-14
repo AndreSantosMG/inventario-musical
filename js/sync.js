@@ -59,8 +59,8 @@ const sync = {
         const localItems = await db.getAll(app.currentInstituicao?.id);
         const localCount = localItems.length;
         const instNome = app.currentInstituicao?.nome;
+        const instId = app.currentInstituicao?.id;
         
-        // Primeiro, pergunta o modo de restauração
         const modeMsg = `Você tem ${localCount} itens no celular.\n\n` +
                        `Como deseja restaurar?\n\n` +
                        `OK = MESCLAR (baixa da nuvem e mantém itens locais)\n` +
@@ -99,54 +99,33 @@ const sync = {
             if (result.status === 'success' && result.data) {
                 const totalNaNuvem = result.data.length;
                 
-                // DIAGNÓSTICO: Mostra o que tem na nuvem
-                let diagnostico = `📊 DIAGNÓSTICO DA NUVEM:\n\n`;
-                diagnostico += `Total de itens na planilha: ${totalNaNuvem}\n`;
-                diagnostico += `Sua instituição: "${instNome}"\n\n`;
-                
                 if (totalNaNuvem === 0) {
                     alert('A planilha está VAZIA.\n\nNão há nada para restaurar.');
                     return;
                 }
                 
-                // Mostra as primeiras 3 linhas para diagnóstico
-                diagnostico += `Primeiros itens na planilha:\n`;
-                result.data.slice(0, 3).forEach((row, idx) => {
-                    diagnostico += `${idx + 1}. ${row.Codigo} - ${row.Descricao} [Inst: "${row.Instituicao}"]\n`;
-                });
-                
-                if (totalNaNuvem > 3) {
-                    diagnostico += `... e mais ${totalNaNuvem - 3} itens\n`;
-                }
-                
-                // Filtra itens da instituição atual (filtro mais permissivo)
+                // Filtra itens da instituição atual
                 let itemsToRestore;
                 
                 if (!instNome || instNome === 'Escola de Música') {
-                    // Se for a instituição padrão, restaura TUDO
                     itemsToRestore = result.data;
-                    diagnostico += `\n✅ Usando instituição padrão - restaurando TODOS os itens`;
                 } else {
-                    // Filtra por nome exato OU contém o nome
                     itemsToRestore = result.data.filter(row => {
                         const rowInst = row.Instituicao || '';
                         return rowInst === instNome || 
                                rowInst.includes(instNome) || 
                                instNome.includes(rowInst);
                     });
-                    diagnostico += `\n\nFiltrados por instituição: ${itemsToRestore.length} itens`;
                 }
                 
-                // Se não encontrou nada com filtro, pergunta se quer restaurar tudo
                 if (itemsToRestore.length === 0 && totalNaNuvem > 0) {
-                    const forcarMsg = diagnostico + `\n\n⚠️ Nenhum item encontrado para sua instituição "${instNome}".\n\nDeseja restaurar TODOS os ${totalNaNuvem} itens da planilha mesmo assim?`;
+                    const forcarMsg = `Nenhum item encontrado para "${instNome}".\n\nDeseja restaurar TODOS os ${totalNaNuvem} itens da planilha?`;
                     if (confirm(forcarMsg)) {
                         itemsToRestore = result.data;
                     } else {
                         alert('Restauração cancelada.');
                         return;
-                    }                } else {
-                    alert(diagnostico);
+                    }
                 }
 
                 if (mode === 'replace') {
@@ -155,18 +134,18 @@ const sync = {
 
                 let count = 0;
                 for (const row of itemsToRestore) {
+                    // CORREÇÃO: Mapeia corretamente a instituição
                     const item = {
                         codigo: row.Codigo,
-                        instituicao: row.Instituicao || 'default',
-                        instituicaoNome: row.Instituicao,
-                        instituicaoCidade: row.Cidade,
+                        instituicao: instId || 'default',  // Usa o ID da instituição atual
+                        instituicaoNome: row.Instituicao || instNome,
+                        instituicaoCidade: row.Cidade || app.currentInstituicao?.cidade,
                         categoria: row.Categoria,
                         descricao: row.Descricao,
                         status: row.Status,
                         responsavel: row.Responsavel,
                         dataEntrada: row.DataEntrada,
-                        foto: row.FotoURL,
-                        observacao: row.Observacao,
+                        foto: row.FotoURL,                        observacao: row.Observacao,
                         historico: row.Historico || []
                     };
                     await db.save(item);
@@ -175,8 +154,11 @@ const sync = {
                 
                 const modeText = mode === 'merge' ? 'mesclados' : 'restaurados';
                 alert(`✅ Concluído!\n\n${count} itens ${modeText} da nuvem.`);
+                
+                // Força atualização da tela
                 app.navigate('dashboard');
                 app.updateDashboard();
+                app.renderList();
             } else {
                 throw new Error(result.message || 'Nenhum dado encontrado na nuvem');
             }
