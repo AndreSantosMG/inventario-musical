@@ -6,6 +6,7 @@ const app = {
 
     init: async () => {
         await db.init();
+        await app.users.init();
         app.navigate('dashboard');
         app.updateDashboard();
         
@@ -35,22 +36,31 @@ const app = {
         if (app.isLoggedIn) {
             app.isLoggedIn = false;
             app.currentUser = null;
-            document.getElementById('btn-login-toggle').textContent = '🔒 Login';
+            document.getElementById('btn-login-toggle').textContent = '🔒';
             document.getElementById('admin-actions').classList.add('hidden');
+            app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
             alert('Deslogado.');
         } else {
             document.getElementById('login-modal').classList.remove('hidden');
         }
     },
 
-    doLogin: () => {
+    doLogin: async () => {
         const u = document.getElementById('login-user').value;
         const p = document.getElementById('login-pass').value;
-        if (u === 'admin' && p === 'musica2026') {
+        
+        await app.users.init();
+        const user = await localforage.getItem(u);
+        
+        if (user && user.password === p) {
             app.isLoggedIn = true;
-            app.currentUser = u;
-            document.getElementById('btn-login-toggle').textContent = '🔓 Admin';
+            app.currentUser = user;
+            document.getElementById('btn-login-toggle').textContent = `🔓 ${user.name}`;
             document.getElementById('login-modal').classList.add('hidden');
+            
+            const perms = app.accessLevels[user.level];
+            app.applyPermissions(perms);
+            
             if (app.currentItem) app.renderDetail(app.currentItem.codigo);
         } else {
             alert('Credenciais inválidas!');
@@ -59,6 +69,17 @@ const app = {
 
     closeLogin: () => {
         document.getElementById('login-modal').classList.add('hidden');
+    },
+
+    applyPermissions: (perms) => {
+        const addBtn = document.querySelector('button[onclick="app.navigate(\'add\')"]');
+        if (addBtn) addBtn.style.display = perms.canCreate ? 'block' : 'none';
+        
+        const syncBtn = document.querySelector('button[onclick="sync.runSync()"]');
+        if (syncBtn) syncBtn.style.display = perms.canSync ? 'block' : 'none';
+        
+        const userMgmtBtn = document.getElementById('btn-user-management');
+        if (userMgmtBtn) userMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
     },
 
     saveItem: async (e) => {
@@ -115,57 +136,55 @@ const app = {
     },
 
     renderDetail: async (codigo) => {
-    const item = await db.get(codigo);
-    app.currentItem = item;
-    const container = document.getElementById('detail-content');
-    
-    let historicoHtml = item.historico.map(h => `<li class="text-xs text-gray-600">• ${h}</li>`).join('');
-
-    container.innerHTML = `
-        ${item.foto ? `<img src="${item.foto}" class="w-full h-48 object-cover rounded-lg mb-4">` : ''}
-        <h2 class="text-2xl font-bold">${item.codigo}</h2>
-        <p class="text-gray-600">${item.categoria} | ${item.descricao}</p>
-        <div class="bg-gray-100 p-3 rounded mt-2">
-            <p><strong>Status:</strong> ${item.status}</p>
-            <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>
-            <p><strong>Data Entrada:</strong> ${item.dataEntrada}</p>
-        </div>
+        const item = await db.get(codigo);
+        app.currentItem = item;
+        const container = document.getElementById('detail-content');
         
-        <!-- QR Code Section -->
-        <div class="mt-4 bg-white p-4 rounded-lg shadow text-center">
-            <p class="text-sm font-bold mb-2">QR Code do Item</p>
-            <div id="detail-qrcode" class="flex justify-center mb-2"></div>
-            <p class="text-xs text-gray-600">${item.codigo}</p>
-        </div>
-        
-        <div class="mt-4">
-            <h4 class="font-bold text-sm mb-2">Histórico</h4>
-            <ul class="space-y-1">${historicoHtml}</ul>
-        </div>
-    `;
+        let historicoHtml = item.historico.map(h => `<li class="text-xs text-gray-600">• ${h}</li>`).join('');
 
-    // Generate QR Code for existing item
-    new QRCode(document.getElementById("detail-qrcode"), {
-        text: item.codigo,
-        width: 150,
-        height: 150
-    });
+        container.innerHTML = `
+            ${item.foto ? `<img src="${item.foto}" class="w-full h-48 object-cover rounded-lg mb-4">` : ''}
+            <h2 class="text-2xl font-bold">${item.codigo}</h2>
+            <p class="text-gray-600">${item.categoria} | ${item.descricao}</p>
+            <div class="bg-gray-100 p-3 rounded mt-2">
+                <p><strong>Status:</strong> ${item.status}</p>
+                <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>
+                <p><strong>Data Entrada:</strong> ${item.dataEntrada}</p>
+            </div>
+            
+            <div class="mt-4 bg-white p-4 rounded-lg shadow text-center">
+                <p class="text-sm font-bold mb-2">QR Code do Item</p>
+                <div id="detail-qrcode" class="flex justify-center mb-2"></div>
+                <p class="text-xs text-gray-600">${item.codigo}</p>
+            </div>
+            
+            <div class="mt-4">
+                <h4 class="font-bold text-sm mb-2">Histórico</h4>
+                <ul class="space-y-1">${historicoHtml}</ul>
+            </div>
+        `;
 
-    if (app.isLoggedIn) {
-        document.getElementById('admin-actions').classList.remove('hidden');
-    } else {
-        document.getElementById('admin-actions').classList.add('hidden');
-    }
-    app.navigate('detail');
-},
+        new QRCode(document.getElementById("detail-qrcode"), {
+            text: item.codigo,
+            width: 150,
+            height: 150
+        });
+
+        if (app.isLoggedIn) {
+            document.getElementById('admin-actions').classList.remove('hidden');
+        } else {
+            document.getElementById('admin-actions').classList.add('hidden');
+        }
+        app.navigate('detail');
+    },
 
     updateStatus: async (newStatus) => {
         if (!app.isLoggedIn) return;
-        let responsavel = app.currentUser;
+        let responsavel = app.currentUser.name || app.currentUser.username;
         let obs = '';
 
         if (newStatus === 'Emprestado') {
-            responsavel = prompt('Nome do responsável pelo empréstimo:') || app.currentUser;
+            responsavel = prompt('Nome do responsável pelo empréstimo:') || responsavel;
             obs = prompt('Data prevista de devolução (DD/MM/AAAA):') || 'Não definida';
         } else if (newStatus === 'Manutenção') {
             obs = prompt('Motivo da Manutenção / Nº OS:') || 'OS pendente';
@@ -173,7 +192,7 @@ const app = {
 
         app.currentItem.status = newStatus;
         app.currentItem.responsavel = responsavel;
-        app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${app.currentUser}. Obs: ${obs}`);
+        app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${responsavel}. Obs: ${obs}`);
         
         await db.save(app.currentItem);
         alert(`Status atualizado para: ${newStatus}`);
@@ -187,7 +206,7 @@ const app = {
         if (!motivo) return;
 
         app.currentItem.status = 'Baixado';
-        app.currentItem.historico.push(`BAIXA em ${new Date().toLocaleString()} por ${app.currentUser}. Motivo: ${motivo}`);
+        app.currentItem.historico.push(`BAIXA em ${new Date().toLocaleString()} por ${app.currentUser.name || app.currentUser.username}. Motivo: ${motivo}`);
         await db.save(app.currentItem);
         alert('Item baixado com sucesso.');
         app.navigate('dashboard');
@@ -222,7 +241,7 @@ const app = {
                     }
                 }
             },
-            (errorMessage) => { /* Ignorar erros de frame */ }
+            (errorMessage) => { }
         ).catch(err => {
             alert('Erro ao iniciar câmera. Verifique as permissões.');
             app.navigate('dashboard');
@@ -252,85 +271,131 @@ const app = {
             alert('Dados limpos. Recarregando...');
             window.location.reload();
         }
-    }
-};
-// User Management Functions
-app.users = {
-    init: async () => {
-        await localforage.config({ name: 'InventarioMusicalDB', storeName: 'users' });
-        // Create default admin if not exists
-        const admin = await localforage.getItem('admin');
-        if (!admin) {
-            await localforage.setItem('admin', {
-                username: 'admin',
-                password: 'musica2026',
-                level: 'admin',
-                name: 'Administrador'
-            });
-        }
     },
-    
-    create: async (userData) => {
-        await localforage.setItem(userData.username, {
-            username: userData.username,
-            password: userData.password,
-            level: userData.level, // 'admin', 'editor', 'viewer'
-            name: userData.name
+
+    openUserManagement: async () => {
+        await app.users.init();
+        const users = await app.users.getAll();
+        const container = document.getElementById('users-list');
+        container.innerHTML = '';
+        
+        users.forEach(user => {
+            const div = document.createElement('div');
+            div.className = 'flex justify-between items-center p-2 bg-gray-100 rounded';
+            div.innerHTML = `
+                <div>
+                    <p class="font-bold">${user.name}</p>
+                    <p class="text-xs text-gray-600">@${user.username} - ${app.accessLevels[user.level].name}</p>
+                </div>
+                ${user.username !== 'admin' ? `<button onclick="app.deleteUser('${user.username}')" class="text-red-600 text-sm">Excluir</button>` : ''}
+            `;
+            container.appendChild(div);
         });
+        
+        document.getElementById('user-management-modal').classList.remove('hidden');
     },
-    
-    getAll: async () => {
-        const keys = await localforage.keys();
-        const users = [];
-        for (const key of keys) {
-            const user = await localforage.getItem(key);
-            users.push(user);
-        }
-        return users;
+
+    closeUserManagement: () => {
+        document.getElementById('user-management-modal').classList.add('hidden');
     },
-    
-    delete: async (username) => {
-        if (username === 'admin') {
-            alert('Não é possível remover o usuário admin principal');
+
+    createUser: async () => {
+        const name = document.getElementById('new-user-name').value;
+        const username = document.getElementById('new-user-username').value;
+        const password = document.getElementById('new-user-password').value;
+        const level = document.getElementById('new-user-level').value;
+        
+        if (!name || !username || !password) {
+            alert('Preencha todos os campos');
             return;
         }
-        await localforage.removeItem(username);
+        
+        await app.users.create({ name, username, password, level });
+        alert('Usuário criado com sucesso!');
+        app.openUserManagement();
+    },
+
+    deleteUser: async (username) => {
+        if (confirm(`Excluir usuário ${username}?`)) {
+            await app.users.delete(username);
+            app.openUserManagement();
+        }
+    },
+
+    users: {
+        init: async () => {
+            await localforage.config({ name: 'InventarioMusicalDB', storeName: 'users' });
+            const admin = await localforage.getItem('admin');
+            if (!admin) {
+                await localforage.setItem('admin', {
+                    username: 'admin',
+                    password: 'musica2026',
+                    level: 'admin',
+                    name: 'Administrador'
+                });
+            }
+        },
+        
+        create: async (userData) => {
+            await localforage.setItem(userData.username, {
+                username: userData.username,
+                password: userData.password,
+                level: userData.level,
+                name: userData.name
+            });
+        },
+        
+        getAll: async () => {
+            const keys = await localforage.keys();
+            const users = [];
+            for (const key of keys) {
+                const user = await localforage.getItem(key);
+                users.push(user);
+            }
+            return users;
+        },
+        
+        delete: async (username) => {
+            if (username === 'admin') {
+                alert('Não é possível remover o usuário admin principal');
+                return;
+            }
+            await localforage.removeItem(username);
+        }
+    },
+
+    accessLevels: {
+        admin: {
+            name: 'Administrador',
+            canCreate: true,
+            canEdit: true,
+            canDelete: true,
+            canBorrow: true,
+            canMaintenance: true,
+            canSync: true,
+            canManageUsers: true
+        },
+        editor: {
+            name: 'Editor',
+            canCreate: true,
+            canEdit: true,
+            canDelete: false,
+            canBorrow: true,
+            canMaintenance: true,
+            canSync: false,
+            canManageUsers: false
+        },
+        viewer: {
+            name: 'Visualizador',
+            canCreate: false,
+            canEdit: false,
+            canDelete: false,
+            canBorrow: false,
+            canMaintenance: false,
+            canSync: false,
+            canManageUsers: false
+        }
     }
 };
 
-// Access Levels Configuration
-app.accessLevels = {
-    admin: {
-        name: 'Administrador',
-        canCreate: true,
-        canEdit: true,
-        canDelete: true,
-        canBorrow: true,
-        canMaintenance: true,
-        canSync: true,
-        canManageUsers: true
-    },
-    editor: {
-        name: 'Editor',
-        canCreate: true,
-        canEdit: true,
-        canDelete: false,
-        canBorrow: true,
-        canMaintenance: true,
-        canSync: false,
-        canManageUsers: false
-    },
-    viewer: {
-        name: 'Visualizador',
-        canCreate: false,
-        canEdit: false,
-        canDelete: false,
-        canBorrow: false,
-        canMaintenance: false,
-        canSync: false,
-        canManageUsers: false
-    }
-};
-
-// Inicializar
 document.addEventListener('DOMContentLoaded', app.init);
