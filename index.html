@@ -18,7 +18,7 @@
     <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-lg relative">
         <!-- Header -->
         <header class="bg-blue-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
-            <h1 class="text-lg font-bold">🎵 Inventário Musical</h1>
+            <h1 class="text-lg font-bold">🎵 Inventário</h1>
             <div class="flex gap-2">
                 <button onclick="app.navigate('scanner')" class="p-2 bg-blue-700 rounded">📷</button>
                 <button id="btn-login-toggle" onclick="app.toggleLogin()" class="p-2 bg-blue-700 rounded">🔒</button>
@@ -26,23 +26,28 @@
             </div>
         </header>
 
-        <!-- Views -->
         <main class="p-4 pb-20">
             <!-- Dashboard -->
             <section id="view-dashboard" class="view">
                 <h2 class="text-xl font-bold mb-4">Dashboard</h2>
                 <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div class="bg-blue-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-total">0</p><p class="text-sm">Total Itens</p></div>
+                    <div class="bg-blue-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-total">0</p><p class="text-sm">Total</p></div>
                     <div class="bg-yellow-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-emprestados">0</p><p class="text-sm">Emprestados</p></div>
                     <div class="bg-red-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-manutencao">0</p><p class="text-sm">Manutenção</p></div>
                     <div class="bg-green-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-ativos">0</p><p class="text-sm">Ativos</p></div>
                 </div>
+                
                 <div class="flex gap-2 mb-4">
-                    <input type="text" id="search-input" placeholder="Buscar por código ou nome..." class="flex-1 p-2 border rounded" oninput="app.filterItems()">
-                    <button onclick="app.exportCSV()" class="bg-green-600 text-white p-2 rounded">CSV</button>
-                    <button onclick="app.exportPDF()" class="bg-red-600 text-white p-2 rounded">PDF</button>
+                    <input type="text" id="search-input" placeholder="Buscar..." class="flex-1 p-2 border rounded" oninput="app.filterItems()">
+                    <button onclick="app.exportCSV()" class="bg-green-600 text-white p-2 rounded text-sm">CSV</button>
+                    <button onclick="app.exportPDF()" class="bg-red-600 text-white p-2 rounded text-sm">PDF</button>
                 </div>
-                <button onclick="app.navigate('add')" class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold mb-4">+ Novo Item</button>
+
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <button onclick="app.navigate('add')" class="bg-blue-600 text-white p-3 rounded-lg font-bold">+ Novo Item</button>
+                    <button onclick="app.printLabels()" class="bg-purple-600 text-white p-3 rounded-lg font-bold">🖨️ Imprimir Etiquetas</button>
+                </div>
+                
                 <div id="items-list" class="space-y-3"></div>
             </section>
 
@@ -68,9 +73,7 @@
                     <label class="block text-sm font-medium mb-1">Foto</label>
                     <input type="file" id="item-foto" accept="image/*" capture="environment" class="w-full p-2 border rounded mb-3">
                     
-                    <div id="qrcode-container" class="flex justify-center mb-4"></div>
-                    
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 mt-6">
                         <button type="button" onclick="app.navigate('dashboard')" class="flex-1 bg-gray-300 p-3 rounded">Cancelar</button>
                         <button type="submit" class="flex-1 bg-blue-600 text-white p-3 rounded font-bold">Salvar</button>
                     </div>
@@ -83,19 +86,19 @@
                 <div id="detail-content" class="space-y-4"></div>
                 
                 <div id="admin-actions" class="hidden mt-6 space-y-3">
-                    <h3 class="font-bold border-b pb-2">Ações Administrativas</h3>
+                    <h3 class="font-bold border-b pb-2">Ações</h3>
                     <button onclick="app.updateStatus('Emprestado')" class="w-full bg-yellow-500 text-white p-2 rounded">Registrar Empréstimo</button>
-                    <button onclick="app.updateStatus('Manutenção')" class="w-full bg-orange-500 text-white p-2 rounded">Registrar Manutenção (OS)</button>
-                    <button onclick="app.updateStatus('Ativo')" class="w-full bg-green-500 text-white p-2 rounded">Marcar como Ativo/Devolvido</button>
+                    <button onclick="app.updateStatus('Manutenção')" class="w-full bg-orange-500 text-white p-2 rounded">Registrar Manutenção</button>
+                    <button onclick="app.updateStatus('Ativo')" class="w-full bg-green-500 text-white p-2 rounded">Marcar Ativo/Devolvido</button>
                     <button onclick="app.baixarItem()" class="w-full bg-red-600 text-white p-2 rounded">Dar Baixa</button>
                 </div>
             </section>
 
             <!-- Scanner -->
             <section id="view-scanner" class="view hidden">
-                <button onclick="app.stopScanner(); app.navigate('dashboard')" class="mb-4 text-blue-600">← Fechar Câmera</button>
+                <button onclick="app.stopScanner(); app.navigate('dashboard')" class="mb-4 text-blue-600">← Fechar</button>
                 <div id="reader" class="w-full"></div>
-                <p class="text-center text-gray-500 mt-2">Aponte a câmera para o QR Code</p>
+                <p class="text-center text-gray-500 mt-2">Aponte para o QR Code</p>
             </section>
 
             <!-- Settings -->
@@ -105,11 +108,11 @@
                     <div class="p-4 bg-gray-100 rounded">
                         <p class="font-bold">Sincronização</p>
                         <p class="text-sm text-gray-600 mb-2" id="sync-status">Nunca sincronizado</p>
-                        <button onclick="sync.runSync()" class="bg-blue-600 text-white px-4 py-2 rounded w-full">Sincronizar com Google Planilhas</button>
+                        <button onclick="sync.runSync()" class="bg-blue-600 text-white px-4 py-2 rounded w-full">Sincronizar com Google</button>
                     </div>
                     <div class="p-4 bg-red-50 rounded border border-red-200">
                         <p class="font-bold text-red-700">Zona de Perigo</p>
-                        <button onclick="app.clearData()" class="bg-red-600 text-white px-4 py-2 rounded w-full mt-2">Limpar Todos os Dados Locais</button>
+                        <button onclick="app.clearData()" class="bg-red-600 text-white px-4 py-2 rounded w-full mt-2">Limpar Tudo</button>
                     </div>
                 </div>
             </section>
@@ -119,7 +122,7 @@
         <nav class="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 z-50">
             <button onclick="app.navigate('dashboard')" class="flex flex-col items-center text-blue-900"><span>🏠</span><span class="text-xs">Início</span></button>
             <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span>📷</span><span class="text-xs">Escanear</span></button>
-            <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>️</span><span class="text-xs">Ajustes</span></button>
+            <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>⚙️</span><span class="text-xs">Ajustes</span></button>
         </nav>
 
         <!-- Login Modal -->
@@ -139,24 +142,19 @@
         <div id="user-management-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
             <div class="bg-white p-6 rounded-lg w-11/12 max-w-md max-h-[80vh] overflow-y-auto">
                 <h3 class="text-lg font-bold mb-4">Gerenciar Usuários</h3>
-                
-                <!-- Add User Form -->
                 <div class="mb-4 p-3 bg-gray-50 rounded">
                     <h4 class="font-bold text-sm mb-2">Novo Usuário</h4>
                     <input type="text" id="new-user-name" placeholder="Nome completo" class="w-full p-2 border rounded mb-2">
-                    <input type="text" id="new-user-username" placeholder="Nome de usuário" class="w-full p-2 border rounded mb-2">
+                    <input type="text" id="new-user-username" placeholder="Usuário (sem espaços)" class="w-full p-2 border rounded mb-2">
                     <input type="password" id="new-user-password" placeholder="Senha" class="w-full p-2 border rounded mb-2">
                     <select id="new-user-level" class="w-full p-2 border rounded mb-2">
-                        <option value="viewer">Visualizador (só consulta)</option>
-                        <option value="editor">Editor (cadastra e edita)</option>
-                        <option value="admin">Administrador (acesso total)</option>
+                        <option value="viewer">Visualizador</option>
+                        <option value="editor">Editor</option>
+                        <option value="admin">Administrador</option>
                     </select>
-                    <button onclick="app.createUser()" class="w-full bg-green-600 text-white p-2 rounded">Criar Usuário</button>
+                    <button onclick="app.createUser()" class="w-full bg-green-600 text-white p-2 rounded">Criar</button>
                 </div>
-                
-                <!-- Users List -->
                 <div id="users-list" class="space-y-2"></div>
-                
                 <button onclick="app.closeUserManagement()" class="w-full bg-gray-300 p-2 rounded mt-4">Fechar</button>
             </div>
         </div>
