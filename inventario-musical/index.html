@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e3a8a">
+    <title>Inventário Musical</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+    <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-lg relative">
+        <!-- Header -->
+        <header class="bg-blue-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
+            <h1 class="text-lg font-bold">🎵 Inventário Musical</h1>
+            <div class="flex gap-3">
+                <button onclick="app.navigate('scanner')" class="p-2 bg-blue-700 rounded">📷 Escanear</button>
+                <button id="btn-login-toggle" onclick="app.toggleLogin()" class="p-2 bg-blue-700 rounded">🔒 Login</button>
+            </div>
+        </header>
+
+        <!-- Views -->
+        <main class="p-4 pb-20">
+            <!-- Dashboard -->
+            <section id="view-dashboard" class="view">
+                <h2 class="text-xl font-bold mb-4">Dashboard</h2>
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-blue-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-total">0</p><p class="text-sm">Total Itens</p></div>
+                    <div class="bg-yellow-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-emprestados">0</p><p class="text-sm">Emprestados</p></div>
+                    <div class="bg-red-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-manutencao">0</p><p class="text-sm">Manutenção</p></div>
+                    <div class="bg-green-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-ativos">0</p><p class="text-sm">Ativos</p></div>
+                </div>
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="search-input" placeholder="Buscar por código ou nome..." class="flex-1 p-2 border rounded" oninput="app.filterItems()">
+                    <button onclick="app.exportCSV()" class="bg-green-600 text-white p-2 rounded">CSV</button>
+                    <button onclick="app.exportPDF()" class="bg-red-600 text-white p-2 rounded">PDF</button>
+                </div>
+                <button onclick="app.navigate('add')" class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold mb-4">+ Novo Item</button>
+                <div id="items-list" class="space-y-3"></div>
+            </section>
+
+            <!-- Add Item -->
+            <section id="view-add" class="view hidden">
+                <h2 class="text-xl font-bold mb-4">Cadastrar Item</h2>
+                <form id="form-add" onsubmit="app.saveItem(event)">
+                    <label class="block text-sm font-medium mb-1">Código (Auto)</label>
+                    <input type="text" id="item-codigo" class="w-full p-2 border rounded mb-3 bg-gray-100" readonly>
+                    
+                    <label class="block text-sm font-medium mb-1">Categoria</label>
+                    <select id="item-categoria" class="w-full p-2 border rounded mb-3" required>
+                        <option value="Instrumento">Instrumento Musical</option>
+                        <option value="Eletronico">Eletrônico</option>
+                        <option value="Mobiliario">Mobiliário</option>
+                        <option value="Acessorio">Acessório</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+
+                    <label class="block text-sm font-medium mb-1">Descrição</label>
+                    <input type="text" id="item-descricao" class="w-full p-2 border rounded mb-3" required>
+
+                    <label class="block text-sm font-medium mb-1">Foto</label>
+                    <input type="file" id="item-foto" accept="image/*" capture="environment" class="w-full p-2 border rounded mb-3">
+                    
+                    <div id="qrcode-container" class="flex justify-center mb-4"></div>
+                    
+                    <div class="flex gap-2">
+                        <button type="button" onclick="app.navigate('dashboard')" class="flex-1 bg-gray-300 p-3 rounded">Cancelar</button>
+                        <button type="submit" class="flex-1 bg-blue-600 text-white p-3 rounded font-bold">Salvar</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Item Detail -->
+            <section id="view-detail" class="view hidden">
+                <button onclick="app.navigate('dashboard')" class="mb-4 text-blue-600">← Voltar</button>
+                <div id="detail-content" class="space-y-4"></div>
+                
+                <div id="admin-actions" class="hidden mt-6 space-y-3">
+                    <h3 class="font-bold border-b pb-2">Ações Administrativas</h3>
+                    <button onclick="app.updateStatus('Emprestado')" class="w-full bg-yellow-500 text-white p-2 rounded">Registrar Empréstimo</button>
+                    <button onclick="app.updateStatus('Manutenção')" class="w-full bg-orange-500 text-white p-2 rounded">Registrar Manutenção (OS)</button>
+                    <button onclick="app.updateStatus('Ativo')" class="w-full bg-green-500 text-white p-2 rounded">Marcar como Ativo/Devolvido</button>
+                    <button onclick="app.baixarItem()" class="w-full bg-red-600 text-white p-2 rounded">Dar Baixa</button>
+                </div>
+            </section>
+
+            <!-- Scanner -->
+            <section id="view-scanner" class="view hidden">
+                <button onclick="app.stopScanner(); app.navigate('dashboard')" class="mb-4 text-blue-600">← Fechar Câmera</button>
+                <div id="reader" class="w-full"></div>
+                <p class="text-center text-gray-500 mt-2">Aponte a câmera para o QR Code</p>
+            </section>
+
+            <!-- Settings -->
+            <section id="view-settings" class="view hidden">
+                <h2 class="text-xl font-bold mb-4">Configurações</h2>
+                <div class="space-y-4">
+                    <div class="p-4 bg-gray-100 rounded">
+                        <p class="font-bold">Sincronização</p>
+                        <p class="text-sm text-gray-600 mb-2" id="sync-status">Nunca sincronizado</p>
+                        <button onclick="sync.runSync()" class="bg-blue-600 text-white px-4 py-2 rounded w-full">Sincronizar com Google Planilhas</button>
+                    </div>
+                    <div class="p-4 bg-red-50 rounded border border-red-200">
+                        <p class="font-bold text-red-700">Zona de Perigo</p>
+                        <button onclick="app.clearData()" class="bg-red-600 text-white px-4 py-2 rounded w-full mt-2">Limpar Todos os Dados Locais</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Nav -->
+        <nav class="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 z-50">
+            <button onclick="app.navigate('dashboard')" class="flex flex-col items-center text-blue-900"><span>🏠</span><span class="text-xs">Início</span></button>
+            <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span>📷</span><span class="text-xs">Escanear</span></button>
+            <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>⚙️</span><span class="text-xs">Ajustes</span></button>
+        </nav>
+
+        <!-- Login Modal -->
+        <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg w-11/12 max-w-sm">
+                <h3 class="text-lg font-bold mb-4">Acesso Restrito</h3>
+                <input type="text" id="login-user" placeholder="Usuário" class="w-full p-2 border rounded mb-3">
+                <input type="password" id="login-pass" placeholder="Senha" class="w-full p-2 border rounded mb-4">
+                <div class="flex gap-2">
+                    <button onclick="app.closeLogin()" class="flex-1 bg-gray-300 p-2 rounded">Cancelar</button>
+                    <button onclick="app.doLogin()" class="flex-1 bg-blue-600 text-white p-2 rounded">Entrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="js/db.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/sync.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
