@@ -124,7 +124,7 @@ const app = {
         const obsText = (item.observacao && item.observacao.trim() !== '') ? item.observacao : 'Nenhuma observação registrada.';
 
         // A tag img funciona tanto para Base64 local quanto para URL da nuvem
-        const fotoHtml = item.foto ? `<img src="${item.foto}" class="w-full h-48 object-cover rounded-lg mb-4">` : '';
+        const fotoHtml = item.foto ? `<img src="${item.foto}" class="w-full h-48 object-cover rounded-lg mb-4" onerror="this.onerror=null; this.src='https://drive.google.com/thumbnail?id=${item.foto.match(/\/d\/([^\/]+)/)?.[1] || ''}&sz=w800';">` : '';
 
         container.innerHTML = `
             ${fotoHtml}
