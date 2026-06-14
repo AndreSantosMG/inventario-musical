@@ -27,13 +27,24 @@ const app = {
             }
         }
 
-        app.navigate('dashboard');
-        app.updateDashboard();
-        app.updateInstituicaoDisplay();
+        // Se não está logado, mostra tela de login
+        if (!app.isLoggedIn) {
+            app.showLoginScreen();
+        } else {
+            app.navigate('dashboard');
+            app.updateDashboard();
+            app.updateInstituicaoDisplay();
+        }
         
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(console.error);
         }
+    },
+
+    showLoginScreen: () => {
+        document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
+        document.getElementById('view-login-required').classList.remove('hidden');
+        document.getElementById('current-instituicao-display').classList.add('hidden');
     },
 
     forceUpdate: () => {
@@ -47,6 +58,12 @@ const app = {
     },
 
     navigate: (viewId) => {
+        // Bloqueia navegação se não estiver logado
+        if (!app.isLoggedIn && viewId !== 'login-required') {
+            app.showLoginScreen();
+            return;
+        }
+
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
         document.getElementById(`view-${viewId}`).classList.remove('hidden');
         
@@ -55,11 +72,6 @@ const app = {
             app.updateInstituicaoDisplay();
         }
         if (viewId === 'add') {
-            if (!app.isLoggedIn) {
-                alert('Faça login para cadastrar itens');
-                app.navigate('dashboard');
-                return;
-            }
             document.getElementById('item-codigo').value = utils.generateCode();
         }
         if (viewId === 'scanner') app.startScanner();
@@ -86,8 +98,7 @@ const app = {
                 document.getElementById('btn-login-toggle').textContent = '🔒';
                 document.getElementById('admin-actions').classList.add('hidden');
                 app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
-                app.updateDashboard();
-                app.updateInstituicaoDisplay();
+                app.showLoginScreen();
             }
         } else {
             app.openLoginModal();
@@ -139,6 +150,7 @@ const app = {
             document.getElementById('login-modal').classList.add('hidden');
             
             app.applyPermissions(app.accessLevels[user.level]);
+            app.navigate('dashboard');
             app.updateDashboard();
             app.updateInstituicaoDisplay();
             
@@ -180,6 +192,11 @@ const app = {
         let fotoBase64 = '';
         if (fileInput.files[0]) {
             fotoBase64 = await utils.compressImage(fileInput.files[0]);
+        } else {
+            // Confirmação se não tem foto
+            if (!confirm('Você não adicionou uma foto. Deseja continuar mesmo assim?')) {
+                return;
+            }
         }
 
         const item = {
@@ -366,6 +383,81 @@ const app = {
         app.updateDashboard();
     },
 
+    // NOVA FUNÇÃO: Editar item
+    editItem: async () => {
+        if (!app.isLoggedIn || !app.currentUser) {
+            alert('Faça login para editar');
+            return;
+        }
+
+        const item = app.currentItem;
+        
+        // Abre modal de edição
+        document.getElementById('edit-codigo').value = item.codigo;
+        document.getElementById('edit-categoria').value = item.categoria;
+        document.getElementById('edit-descricao').value = item.descricao;
+        document.getElementById('edit-obs').value = item.observacao || '';
+        document.getElementById('edit-foto-preview').src = item.foto || '';
+        document.getElementById('edit-foto-preview').style.display = item.foto ? 'block' : 'none';
+        
+        document.getElementById('edit-item-modal').classList.remove('hidden');
+    },
+
+    saveEditItem: async () => {
+        if (!app.isLoggedIn || !app.currentUser) return;
+
+        const fileInput = document.getElementById('edit-foto');
+        let fotoBase64 = app.currentItem.foto; // Mantém foto atual
+        
+        if (fileInput.files[0]) {
+            fotoBase64 = await utils.compressImage(fileInput.files[0]);
+            app.currentItem.historico.push(`Foto atualizada em ${new Date().toLocaleString()} por ${app.currentUser.name}`);
+        }
+
+        app.currentItem.categoria = document.getElementById('edit-categoria').value;
+        app.currentItem.descricao = document.getElementById('edit-descricao').value;
+        app.currentItem.observacao = document.getElementById('edit-obs').value.trim();
+        app.currentItem.foto = fotoBase64;
+        
+        app.currentItem.historico.push(`Editado em ${new Date().toLocaleString()} por ${app.currentUser.name}`);
+
+        await db.save(app.currentItem);
+        alert('Item atualizado!');
+        
+        document.getElementById('edit-item-modal').classList.add('hidden');
+        app.renderDetail(app.currentItem.codigo);
+        app.renderList();
+    },
+
+    cancelEditItem: () => {
+        document.getElementById('edit-item-modal').classList.add('hidden');
+    },
+
+    // NOVA FUNÇÃO: Excluir item definitivamente
+    deleteItem: async () => {
+        if (!app.isLoggedIn || !app.currentUser || app.currentUser.level !== 'admin') {
+            alert('Apenas administradores podem excluir itens');
+            return;
+        }
+
+        const item = app.currentItem;
+        
+        if (!confirm(`ATENÇÃO! Excluir permanentemente o item ${item.codigo}?\n\n${item.descricao}\n\nEsta ação NÃO pode ser desfeita!`)) {
+            return;
+        }
+
+        if (!confirm('TEM CERTEZA ABSOLUTA? O item será removido do banco local e da planilha na próxima sincronização.')) {
+            return;
+        }
+
+        // Remove do banco local
+        await localforage.removeItem(item.codigo);
+        
+        alert('Item excluído com sucesso.');
+        app.navigate('dashboard');
+        app.updateDashboard();
+    },
+
     updateDashboard: async () => {
         const items = await db.getAll(app.currentInstituicao?.id);
         document.getElementById('dash-total').textContent = items.length;
@@ -446,39 +538,44 @@ const app = {
     exportCSV: async () => { utils.exportCSV(await db.getAll(app.currentInstituicao?.id)); },
     exportPDF: async () => { utils.exportPDF(await db.getAll(app.currentInstituicao?.id)); },
 
-clearData: async () => {
-    const items = await db.getAll();
-    
-    if (items.length > 0) {
-        const confirmMsg = `ATENÇÃO! Você tem ${items.length} itens cadastrados localmente.\n\n` +
-                          `Antes de limpar, deseja fazer backup na nuvem?\n\n` +
-                          `OK = Fazer backup e depois limpar\n` +
-                          `Cancelar = Abortar operação`;
+    clearData: async () => {
+        const items = await db.getAll();
         
-        if (confirm(confirmMsg)) {
-            try {
-                await sync.runSync();
-                alert('Backup concluído! Agora os dados serão limpos.');
-            } catch (error) {
-                if (!confirm('Erro no backup. Deseja limpar mesmo assim? (Os dados serão PERDIDOS)')) {
-                    return;
+        if (items.length > 0) {
+            const confirmMsg = `ATENÇÃO! Você tem ${items.length} itens cadastrados localmente.\n\n` +
+                              `Antes de limpar, deseja fazer backup na nuvem?\n\n` +
+                              `OK = Fazer backup e depois limpar\n` +
+                              `Cancelar = Abortar operação`;
+            
+            if (confirm(confirmMsg)) {
+                try {
+                    await sync.runSync();
+                    alert('Backup concluído! Agora os dados serão limpos.');
+                } catch (error) {
+                    if (!confirm('Erro no backup. Deseja limpar mesmo assim? (Os dados serão PERDIDOS)')) {
+                        return;
+                    }
                 }
+            } else {
+                return;
             }
-        } else {
+        }
+        
+        if (confirm('TEM CERTEZA ABSOLUTA? Isso apagará TUDO do celular.\n\n' +
+                    'Se você fez backup, pode restaurar depois em Ajustes > Restaurar da Nuvem.')) {
+            await db.clear();
+            localStorage.clear();
+            window.location.reload();
+        }
+    },
+
+    // ===== GESTÃO DE USUÁRIOS (EXPANDIDA) =====
+    openUserManagement: () => {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
+            alert('Apenas administradores podem gerenciar usuários');
             return;
         }
-    }
-    
-    if (confirm('TEM CERTEZA ABSOLUTA? Isso apagará TUDO do celular.\n\n' +
-                'Se você fez backup, pode restaurar depois em Ajustes > Restaurar da Nuvem.')) {
-        await db.clear();
-        localStorage.clear();
-        window.location.reload();
-    }
-},
 
-    // ===== GESTÃO DE USUÁRIOS =====
-    openUserManagement: () => {
         app.users.init();
         const users = app.users.getAll();
         const container = document.getElementById('users-list');
@@ -487,11 +584,16 @@ clearData: async () => {
             const div = document.createElement('div');
             div.className = 'flex justify-between items-center p-2 bg-gray-100 rounded';
             div.innerHTML = `
-                <div>
+                <div class="flex-1">
                     <p class="font-bold">${user.name}</p>
                     <p class="text-xs text-gray-600">@${user.username} - ${app.accessLevels[user.level].name}</p>
                 </div>
-                ${user.username !== 'admin' ? `<button onclick="app.deleteUser('${user.username}')" class="text-red-600 text-sm">Excluir</button>` : ''}
+                <div class="flex gap-2">
+                    ${user.username !== 'admin' ? `
+                        <button onclick="app.editUser('${user.username}')" class="text-blue-600 text-xs">Editar</button>
+                        <button onclick="app.deleteUser('${user.username}')" class="text-red-600 text-xs">Excluir</button>
+                    ` : '<span class="text-xs text-gray-500">Principal</span>'}
+                </div>
             `;
             container.appendChild(div);
         });
@@ -514,6 +616,11 @@ clearData: async () => {
         if (!name || !username || !password) { alert('Preencha todos os campos'); return; }
         if (username.includes(' ')) { alert('Usuário não pode ter espaços'); return; }
         
+        if (app.users.get(username)) {
+            alert('Este nome de usuário já existe');
+            return;
+        }
+        
         app.users.create({ name, username, password, level });
         alert(`Usuário criado com sucesso!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level].name}`);
         
@@ -524,12 +631,48 @@ clearData: async () => {
         app.openUserManagement();
     },
 
+    // NOVA FUNÇÃO: Editar usuário
+    editUser: (username) => {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
+            alert('Apenas administradores podem editar usuários');
+            return;
+        }
+
+        const user = app.users.get(username);
+        if (!user) {
+            alert('Usuário não encontrado');
+            return;
+        }
+
+        const newLevel = prompt(`Alterar nível de acesso para ${user.name}?\n\nAtual: ${app.accessLevels[user.level].name}\n\nDigite:\n- admin para Administrador\n- editor para Editor\n- viewer para Visualizador`, user.level);
+        
+        if (newLevel && ['admin', 'editor', 'viewer'].includes(newLevel)) {
+            user.level = newLevel;
+            app.users.create(user);
+            alert(`Nível alterado para: ${app.accessLevels[newLevel].name}`);
+            app.openUserManagement();
+        } else if (newLevel) {
+            alert('Nível inválido');
+        }
+
+        const changePassword = confirm('Deseja alterar a senha deste usuário?');
+        if (changePassword) {
+            const newPassword = prompt('Digite a nova senha:');
+            if (newPassword && newPassword.trim()) {
+                user.password = newPassword.trim();
+                app.users.create(user);
+                alert('Senha alterada com sucesso!');
+                app.openUserManagement();
+            }
+        }
+    },
+
     deleteUser: (username) => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem excluir usuários');
             return;
         }
-        if (confirm(`Excluir usuário ${username}?`)) {
+        if (confirm(`Excluir usuário ${username}?\n\nEsta ação revoga o acesso permanentemente.`)) {
             app.users.delete(username);
             app.openUserManagement();
         }
@@ -537,6 +680,11 @@ clearData: async () => {
 
     // ===== GESTÃO DE INSTITUIÇÕES =====
     openInstituicaoManagement: () => {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
+            alert('Apenas administradores podem gerenciar unidades');
+            return;
+        }
+
         app.instituicoes.init();
         const instituicoes = app.instituicoes.getAll();
         const container = document.getElementById('instituicoes-list');
@@ -607,7 +755,7 @@ clearData: async () => {
             return users;
         },
         get: (username) => { const data = localStorage.getItem(`user_${username}`); return data ? JSON.parse(data) : null; },
-        delete: (username) => { if (username === 'admin') { alert('Não pode excluir o admin'); return; } localStorage.removeItem(`user_${username}`); }
+        delete: (username) => { if (username === 'admin') { alert('Não pode excluir o admin principal'); return; } localStorage.removeItem(`user_${username}`); }
     },
 
     instituicoes: {
