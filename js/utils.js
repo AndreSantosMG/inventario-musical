@@ -24,9 +24,12 @@ const utils = {
             reader.readAsDataURL(file);
         });
     },
+    generateId: () => {
+        return 'inst_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    },
     exportCSV: (items) => {
-        const headers = ['Codigo', 'Categoria', 'Descricao', 'Status', 'Responsavel', 'DataEntrada'];
-        const rows = items.map(i => [i.codigo, i.categoria, i.descricao, i.status, i.responsavel || '', i.dataEntrada]);
+        const headers = ['Codigo', 'Instituicao', 'Categoria', 'Descricao', 'Status', 'Responsavel', 'DataEntrada', 'Observacao'];
+        const rows = items.map(i => [i.codigo, i.instituicaoNome || '', i.categoria, i.descricao, i.status, i.responsavel || '', i.dataEntrada, i.observacao || '']);
         const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(";")).join("\n");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -40,8 +43,8 @@ const utils = {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         doc.text("Relatório de Inventário", 14, 15);
-        const tableData = items.map(i => [i.codigo, i.categoria, i.descricao, i.status]);
-        doc.autoTable({ head: [['Código', 'Categoria', 'Descrição', 'Status']], body: tableData, startY: 20 });
+        const tableData = items.map(i => [i.codigo, i.instituicaoNome || '', i.categoria, i.descricao, i.status]);
+        doc.autoTable({ head: [['Código', 'Unidade', 'Categoria', 'Descrição', 'Status']], body: tableData, startY: 20 });
         doc.save("inventario.pdf");
     }
 };
