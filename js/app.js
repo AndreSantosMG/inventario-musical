@@ -44,37 +44,29 @@ const app = {
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
         const loginView = document.getElementById('view-login-required');
         if (loginView) loginView.classList.remove('hidden');
-        const display = document.getElementById('current-instituicao-display');
-        if (display) display.classList.add('hidden');
     },
-    // CORREÇÃO: Não apaga usuários e instituições
-    forceUpdate: () => {
-        if (confirm('Isso vai limpar o cache e recarregar.\n\nSeus usuários e unidades serão PRESERVADOS.\nApenas a sessão atual será encerrada.\n\nOK?')) {
-            // Salva usuários e instituições antes de limpar
-            const usersData = {};
-            const instData = {};
+
+    // VERSÃO ROBUSTA: NUNCA apaga usuários ou instituições
+    forceUpdate: () => {        if (confirm('Isso vai limpar o cache e recarregar.\n\nSeus USUÁRIOS e UNIDADES serão PRESERVADOS.\n\nOK?')) {
+            // Lista de chaves que NUNCA podem ser apagadas
+            const protectedKeys = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && key.startsWith('user_')) {
-                    usersData[key] = localStorage.getItem(key);
-                } else if (key && key.startsWith('inst_')) {
-                    instData[key] = localStorage.getItem(key);
+                if (key && (key.startsWith('user_') || key.startsWith('inst_'))) {
+                    protectedKeys.push({ key, value: localStorage.getItem(key) });
                 }
             }
             
-            // Limpa tudo
             localStorage.clear();
+            
+            // Restaura as chaves protegidas
+            protectedKeys.forEach(({ key, value }) => {
+                localStorage.setItem(key, value);
+            });
+            
             if ('caches' in window) {
                 caches.keys().then(names => names.forEach(n => caches.delete(n)));
             }
-            
-            // Restaura usuários e instituições
-            Object.keys(usersData).forEach(key => {
-                localStorage.setItem(key, usersData[key]);
-            });
-            Object.keys(instData).forEach(key => {
-                localStorage.setItem(key, instData[key]);
-            });
             
             window.location.reload(true);
         }
@@ -96,15 +88,15 @@ const app = {
         }
         if (viewId === 'add') {
             document.getElementById('item-codigo').value = app.generateCode();
-        }        if (viewId === 'scanner') app.startScanner();
+        }
+        if (viewId === 'scanner') app.startScanner();
         if (viewId === 'reports') app.renderReports();
     },
 
     generateCode: () => {
         const year = new Date().getFullYear();
         const random = Math.floor(10000 + Math.random() * 90000);
-        return `FDSF-${year}-${random}`;
-    },
+        return `FDSF-${year}-${random}`;    },
 
     updateInstituicaoDisplay: () => {
         const display = document.getElementById('current-instituicao-display');
@@ -126,8 +118,6 @@ const app = {
                 localStorage.removeItem('sessionData');
                 const btn = document.getElementById('btn-login-toggle');
                 if (btn) btn.textContent = '';
-                const adminActions = document.getElementById('admin-actions');
-                if (adminActions) adminActions.classList.add('hidden');
                 app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
                 app.showLoginScreen();
             }
@@ -145,7 +135,8 @@ const app = {
             const selectInst = document.getElementById('login-instituicao');
             if (selectInst) {
                 selectInst.innerHTML = '<option value="">-- Selecione sua unidade --</option>';
-                instituicoes.forEach(inst => {                    const option = document.createElement('option');
+                instituicoes.forEach(inst => {
+                    const option = document.createElement('option');
                     option.value = inst.id;
                     option.textContent = `${inst.nome} - ${inst.cidade || ''}`;
                     selectInst.appendChild(option);
@@ -154,25 +145,13 @@ const app = {
 
             const usuarios = app.users.getAll();
             const selectUser = document.getElementById('login-user-select');
-            if (selectUser) {
-                selectUser.innerHTML = '<option value="">-- Selecione seu usuário --</option>';
-                if (usuarios.length === 0) {
-                    app.users.init();
-                    const usuariosAtualizados = app.users.getAll();
-                    usuariosAtualizados.forEach(user => {
-                        const option = document.createElement('option');
-                        option.value = user.username;
-                        option.textContent = `${user.name} (${app.accessLevels[user.level].name})`;
-                        selectUser.appendChild(option);
-                    });
-                } else {
-                    usuarios.forEach(user => {
-                        const option = document.createElement('option');
-                        option.value = user.username;
-                        option.textContent = `${user.name} (${app.accessLevels[user.level].name})`;
-                        selectUser.appendChild(option);
-                    });
-                }
+            if (selectUser) {                selectUser.innerHTML = '<option value="">-- Selecione seu usuário --</option>';
+                usuarios.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.username;
+                    option.textContent = `${user.name} (${app.accessLevels[user.level].name})`;
+                    selectUser.appendChild(option);
+                });
             }
 
             const passField = document.getElementById('login-pass');
@@ -182,7 +161,7 @@ const app = {
             if (modal) modal.classList.remove('hidden');
         } catch (error) {
             console.error('Erro ao abrir modal de login:', error);
-            alert('Erro ao abrir tela de login. Tente recarregar a página.');
+            alert('Erro ao abrir tela de login.');
         }
     },
 
@@ -194,7 +173,8 @@ const app = {
         if (!instId) { alert('Selecione sua unidade/instituição'); return; }
         if (!username) { alert('Selecione seu usuário'); return; }
         
-        const user = app.users.get(username);        if (!user || user.password !== p) { alert('Senha incorreta!'); return; }
+        const user = app.users.get(username);
+        if (!user || user.password !== p) { alert('Senha incorreta!'); return; }
 
         const instituicao = app.instituicoes.get(instId);
         if (!instituicao) { alert('Unidade não encontrada'); return; }
@@ -206,7 +186,7 @@ const app = {
         localStorage.setItem('sessionData', JSON.stringify({ username: username, instituicao: instituicao }));
         
         const btn = document.getElementById('btn-login-toggle');
-        if (btn) btn.textContent = ` ${user.name}`;
+        if (btn) btn.textContent = `🔓 ${user.name}`;
         
         document.getElementById('login-modal').classList.add('hidden');
         
@@ -214,8 +194,7 @@ const app = {
         app.navigate('dashboard');
         app.updateDashboard();
         app.updateInstituicaoDisplay();
-        
-        const hora = new Date().getHours();
+                const hora = new Date().getHours();
         let saudacao = 'Olá';
         if (hora < 12) saudacao = 'Bom dia';
         else if (hora < 18) saudacao = 'Boa tarde';
@@ -243,10 +222,9 @@ const app = {
 
         const printBtn = document.querySelector('button[onclick="app.printLabels()"]');
         if (printBtn) printBtn.style.display = perms.canCreate ? 'block' : 'none';
+
         const reportsBtn = document.getElementById('btn-reports');
-        if (reportsBtn) {
-            reportsBtn.style.display = perms.canManageUsers ? 'block' : 'none';
-        }
+        if (reportsBtn) reportsBtn.style.display = perms.canManageUsers ? 'block' : 'none';
     },
 
     saveItem: async (e) => {
@@ -265,8 +243,7 @@ const app = {
         }
 
         const item = {
-            codigo: document.getElementById('item-codigo').value,
-            categoria: document.getElementById('item-categoria').value,
+            codigo: document.getElementById('item-codigo').value,            categoria: document.getElementById('item-categoria').value,
             descricao: document.getElementById('item-descricao').value,
             foto: fotoBase64,
             observacao: document.getElementById('item-obs').value.trim(),
@@ -293,6 +270,7 @@ const app = {
         
         const filter = document.getElementById('search-input').value.toLowerCase();
         const filtered = items.filter(i => i.codigo.toLowerCase().includes(filter) || i.descricao.toLowerCase().includes(filter));
+
         if (filtered.length === 0) {
             container.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhum item cadastrado nesta unidade</p>';
             return;
@@ -305,7 +283,7 @@ const app = {
             div.innerHTML = `
                 <div class="flex justify-between items-center cursor-pointer" onclick="app.renderDetail('${item.codigo}')">
                     <div>
-                        <p class="font-bold text-sm">${item.codigo} ${temObs ? '' : ''}</p>
+                        <p class="font-bold text-sm">${item.codigo} ${temObs ? '📝' : ''}</p>
                         <p class="text-xs text-gray-600">${item.descricao}</p>
                     </div>
                     <span class="text-xs px-2 py-1 rounded bg-gray-200">${item.status}</span>
@@ -314,7 +292,6 @@ const app = {
             container.appendChild(div);
         });
     },
-
     filterItems: () => { app.renderList(); },
 
     renderDetail: async (codigo) => {
@@ -341,7 +318,8 @@ const app = {
             <h2 class="text-2xl font-bold">${item.codigo}</h2>
             <p class="text-gray-600">${item.categoria} | ${item.descricao}</p>
             <p class="text-xs text-blue-600 font-bold">📍 ${item.instituicaoNome || 'Unidade não identificada'} ${item.instituicaoCidade ? '- ' + item.instituicaoCidade : ''}</p>
-            <div class="bg-gray-100 p-3 rounded mt-2">                <p><strong>Status:</strong> ${item.status}</p>
+            <div class="bg-gray-100 p-3 rounded mt-2">
+                <p><strong>Status:</strong> ${item.status}</p>
                 <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>
             </div>
             <div class="bg-yellow-50 p-3 rounded mt-2 border border-yellow-200">
@@ -363,8 +341,7 @@ const app = {
             </div>
         `;
 
-        setTimeout(() => {
-            const qrContainer = document.getElementById("detail-qrcode");
+        setTimeout(() => {            const qrContainer = document.getElementById("detail-qrcode");
             if (qrContainer) {
                 qrContainer.innerHTML = '';
                 new QRCode(qrContainer, { text: item.codigo, width: 150, height: 150 });
@@ -390,7 +367,8 @@ const app = {
         if (!app.isLoggedIn || !app.currentUser || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem editar observações.'); return;
         }
-        const currentObs = app.currentItem.observacao || '';        const newObs = prompt('Editar observação (deixe vazio para apagar):', currentObs);
+        const currentObs = app.currentItem.observacao || '';
+        const newObs = prompt('Editar observação (deixe vazio para apagar):', currentObs);
         if (newObs !== null) {
             app.currentItem.observacao = newObs.trim();
             const acao = newObs.trim() !== '' ? 'Observação atualizada' : 'Observação limpa';
@@ -412,8 +390,7 @@ const app = {
             obs = prompt('Motivo / Nº OS:') || '-';
         }
         app.currentItem.status = newStatus;
-        app.currentItem.responsavel = responsavel;
-        app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${responsavel}. Obs: ${obs}`);
+        app.currentItem.responsavel = responsavel;        app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${responsavel}. Obs: ${obs}`);
         await db.save(app.currentItem);
         alert(`Status: ${newStatus}`);
         app.renderDetail(app.currentItem.codigo);
@@ -439,7 +416,8 @@ const app = {
         document.getElementById('edit-categoria').value = item.categoria;
         document.getElementById('edit-descricao').value = item.descricao;
         document.getElementById('edit-obs').value = item.observacao || '';
-        const preview = document.getElementById('edit-foto-preview');        if (item.foto) { preview.src = item.foto; preview.style.display = 'block'; }
+        const preview = document.getElementById('edit-foto-preview');
+        if (item.foto) { preview.src = item.foto; preview.style.display = 'block'; }
         else { preview.style.display = 'none'; }
         document.getElementById('edit-item-modal').classList.remove('hidden');
     },
@@ -461,8 +439,7 @@ const app = {
         alert('Item atualizado!');
         document.getElementById('edit-item-modal').classList.add('hidden');
         app.renderDetail(app.currentItem.codigo);
-        app.renderList();
-    },
+        app.renderList();    },
 
     cancelEditItem: () => { document.getElementById('edit-item-modal').classList.add('hidden'); },
 
@@ -488,7 +465,8 @@ const app = {
         if (dashTotal) dashTotal.textContent = items.length;
         if (dashEmp) dashEmp.textContent = items.filter(i => i.status === 'Emprestado').length;
         if (dashMan) dashMan.textContent = items.filter(i => i.status === 'Manutenção').length;
-        if (dashAti) dashAti.textContent = items.filter(i => i.status === 'Ativo').length;    },
+        if (dashAti) dashAti.textContent = items.filter(i => i.status === 'Ativo').length;
+    },
 
     printLabels: async () => {
         const items = await db.getAll(app.currentInstituicao?.id);
@@ -499,7 +477,7 @@ const app = {
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.codigo)}`;
             labelsHtml += `<div class="label"><img src="${qrUrl}" alt="QR Code" class="qr-img"><div class="label-text"><div class="label-code">${item.codigo}</div><div class="label-desc">${item.descricao}</div><div class="label-inst">${item.instituicaoNome || ''}</div></div></div>`;
         });
-        printWindow.document.write(`<html><head><title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }.container { display: flex; flex-wrap: wrap; gap: 15px; }.label { border: 1px dashed #ccc; padding: 10px; width: 180px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }.qr-img { width: 120px; height: 120px; margin-bottom: 8px; }.label-code { font-weight: bold; font-size: 12px; margin-bottom: 4px; }.label-desc { font-size: 10px; color: #555; word-wrap: break-word; }.label-inst { font-size: 9px; color: #888; margin-top: 4px; font-style: italic; }@media print { body { padding: 0; } .label { border: 1px solid #000; } .no-print { display: none; } }</style></head><body><div class="no-print" style="text-align:center; margin-bottom:20px;"><h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2><button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">🖨️ Imprimir Agora</button></div><div class="container">${labelsHtml}</div></body></html>`);
+        printWindow.document.write(`<html><head><title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }.container { display: flex; flex-wrap: wrap; gap: 15px; }.label { border: 1px dashed #ccc; padding: 10px; width: 180px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }.qr-img { width: 120px; height: 120px; margin-bottom: 8px; }.label-code { font-weight: bold; font-size: 12px; margin-bottom: 4px; }.label-desc { font-size: 10px; color: #555; word-wrap: break-word; }.label-inst { font-size: 9px; color: #888; margin-top: 4px; font-style: italic; }@media print { body { padding: 0; } .label { border: 1px solid #000; } .no-print { display: none; } }</style></head><body><div class="no-print" style="text-align:center; margin-bottom:20px;"><h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2><button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">️ Imprimir Agora</button></div><div class="container">${labelsHtml}</div></body></html>`);
         printWindow.document.close();
     },
 
@@ -510,8 +488,7 @@ const app = {
                 app.stopScanner();
                 if (!app.isLoggedIn) { alert(`Código: ${decodedText}\n(Faça login para ver detalhes)`); app.navigate('dashboard'); }
                 else {
-                    const item = await db.get(decodedText);
-                    if (item) app.renderDetail(decodedText);
+                    const item = await db.get(decodedText);                    if (item) app.renderDetail(decodedText);
                     else { alert('Item não encontrado.'); app.navigate('dashboard'); }
                 }
             }, () => { }).catch(err => { alert('Erro na câmera.'); app.navigate('dashboard'); });
@@ -522,27 +499,30 @@ const app = {
     exportCSV: async () => { utils.exportCSV(await db.getAll(app.currentInstituicao?.id)); },
     exportPDF: async () => { utils.exportPDF(await db.getAll(app.currentInstituicao?.id)); },
 
+    // VERSÃO ROBUSTA: Preserva usuários e instituições
     clearData: async () => {
         const items = await db.getAll();
         if (items.length > 0) {
             const confirmMsg = `ATENÇÃO! Você tem ${items.length} itens cadastrados localmente.\n\nAntes de limpar, deseja fazer backup na nuvem?\n\nOK = Fazer backup e depois limpar\nCancelar = Abortar operação`;
             if (confirm(confirmMsg)) {
                 try { await sync.runSync(); alert('Backup concluído! Agora os dados serão limpos.'); }
-                catch (error) { if (!confirm('Erro no backup. Deseja limpar mesmo assim? (Os dados serão PERDIDOS)')) return; }
+                catch (error) { if (!confirm('Erro no backup. Deseja limpar mesmo assim?')) return; }
             } else { return; }
         }
-        if (confirm('TEM CERTEZA ABSOLUTA? Isso apagará TUDO do celular.')) {
+        if (confirm('TEM CERTEZA ABSOLUTA? Isso apagará TODOS OS ITENS do celular.\n\nUSUÁRIOS E UNIDADES SERÃO PRESERVADOS.')) {
             await db.clear();
-            // Preserva usuários e instituições mesmo no clearData
-            const usersData = {};
-            const instData = {};
+            // Preserva usuários e instituições
+            const protectedKeys = [];
             for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);                if (key && key.startsWith('user_')) usersData[key] = localStorage.getItem(key);
-                else if (key && key.startsWith('inst_')) instData[key] = localStorage.getItem(key);
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('user_') || key.startsWith('inst_'))) {
+                    protectedKeys.push({ key, value: localStorage.getItem(key) });
+                }
             }
             localStorage.clear();
-            Object.keys(usersData).forEach(key => localStorage.setItem(key, usersData[key]));
-            Object.keys(instData).forEach(key => localStorage.setItem(key, instData[key]));
+            protectedKeys.forEach(({ key, value }) => {
+                localStorage.setItem(key, value);
+            });
             window.location.reload();
         }
     },
@@ -555,13 +535,12 @@ const app = {
         }
 
         const reports = [
-            { id: 'completo', icon: '', title: 'Inventário Completo', description: 'Lista todos os itens cadastrados', color: 'blue' },
-            { id: 'emprestados', icon: '📤', title: 'Itens Emprestados', description: 'Itens emprestados com responsável', color: 'yellow' },
-            { id: 'manutencao', icon: '🔧', title: 'Itens em Manutenção', description: 'Itens com status de manutenção', color: 'orange' },
-            { id: 'baixados', icon: '🗑️', title: 'Itens Baixados', description: 'Itens retirados do inventário', color: 'red' },
+            { id: 'completo', icon: '📋', title: 'Inventário Completo', description: 'Lista todos os itens', color: 'blue' },
+            { id: 'emprestados', icon: '📤', title: 'Itens Emprestados', description: 'Itens emprestados', color: 'yellow' },
+            { id: 'manutencao', icon: '🔧', title: 'Itens em Manutenção', description: 'Status manutenção', color: 'orange' },            { id: 'baixados', icon: '🗑️', title: 'Itens Baixados', description: 'Itens retirados', color: 'red' },
             { id: 'observacoes', icon: '📝', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
-            { id: 'categorias', icon: '📊', title: 'Resumo por Categoria', description: 'Quantitativo por categoria', color: 'purple' },
-            { id: 'historico', icon: '📜', title: 'Histórico de Movimentações', description: 'Log de todas as alterações', color: 'indigo' }
+            { id: 'categorias', icon: '', title: 'Resumo por Categoria', description: 'Quantitativo por categoria', color: 'purple' },
+            { id: 'historico', icon: '📜', title: 'Histórico', description: 'Log de alterações', color: 'indigo' }
         ];
 
         const container = document.getElementById('reports-list');
@@ -586,7 +565,8 @@ const app = {
                 </div>
             `;
             container.appendChild(card);
-        });    },
+        });
+    },
 
     generateReport: async (reportId, format) => {
         const items = await db.getAll(app.currentInstituicao?.id);
@@ -604,23 +584,22 @@ const app = {
                 break;
             case 'emprestados':
                 titulo = 'Itens Emprestados';
-                data = items.filter(i => i.status === 'Emprestado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-', 'Data Entrada': i.dataEntrada || '-', 'Última Atualização': i.historico ? i.historico[i.historico.length - 1] : '-' }));
-                if (data.length === 0) { alert('Nenhum item emprestado no momento.'); return; }
-                break;
-            case 'manutencao':
+                data = items.filter(i => i.status === 'Emprestado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-', 'Data Entrada': i.dataEntrada || '-' }));
+                if (data.length === 0) { alert('Nenhum item emprestado.'); return; }
+                break;            case 'manutencao':
                 titulo = 'Itens em Manutenção';
-                data = items.filter(i => i.status === 'Manutenção').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-', 'Data Entrada': i.dataEntrada || '-', 'Última Atualização': i.historico ? i.historico[i.historico.length - 1] : '-' }));
-                if (data.length === 0) { alert('Nenhum item em manutenção no momento.'); return; }
+                data = items.filter(i => i.status === 'Manutenção').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-' }));
+                if (data.length === 0) { alert('Nenhum item em manutenção.'); return; }
                 break;
             case 'baixados':
                 titulo = 'Itens Baixados';
-                data = items.filter(i => i.status === 'Baixado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Data Entrada': i.dataEntrada || '-', 'Última Atualização': i.historico ? i.historico[i.historico.length - 1] : '-' }));
-                if (data.length === 0) { alert('Nenhum item baixado no momento.'); return; }
+                data = items.filter(i => i.status === 'Baixado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao }));
+                if (data.length === 0) { alert('Nenhum item baixado.'); return; }
                 break;
             case 'observacoes':
-                titulo = 'Itens com Observações Pendentes';
-                data = items.filter(i => i.observacao && i.observacao.trim() !== '').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Status': i.status, 'Observação': i.observacao }));
-                if (data.length === 0) { alert('Nenhum item com observações no momento.'); return; }
+                titulo = 'Itens com Observações';
+                data = items.filter(i => i.observacao && i.observacao.trim() !== '').map(i => ({ 'Código': i.codigo, 'Descrição': i.descricao, 'Observação': i.observacao }));
+                if (data.length === 0) { alert('Nenhum item com observações.'); return; }
                 break;
             case 'categorias':
                 titulo = 'Resumo por Categoria';
@@ -635,20 +614,19 @@ const app = {
                     else if (i.status === 'Baixado') categorias[cat].baixados++;
                 });
                 data = Object.keys(categorias).map(cat => ({ 'Categoria': cat, 'Total': categorias[cat].total, 'Ativos': categorias[cat].ativos, 'Emprestados': categorias[cat].emprestados, 'Em Manutenção': categorias[cat].manutencao, 'Baixados': categorias[cat].baixados }));
-                break;            case 'historico':
+                break;
+            case 'historico':
                 titulo = 'Histórico de Movimentações';
                 items.forEach(i => {
                     if (i.historico && Array.isArray(i.historico)) {
-                        i.historico.forEach(h => {
-                            data.push({ 'Código': i.codigo, 'Descrição': i.descricao, 'Categoria': i.categoria, 'Evento': h });
-                        });
+                        i.historico.forEach(h => data.push({ 'Código': i.codigo, 'Descrição': i.descricao, 'Evento': h }));
                     }
                 });
-                if (data.length === 0) { alert('Nenhum histórico registrado.'); return; }
+                if (data.length === 0) { alert('Nenhum histórico.'); return; }
                 break;
         }
 
-        if (data.length === 0) { alert('Nenhum dado para gerar este relatório.'); return; }
+        if (data.length === 0) { alert('Nenhum dado para este relatório.'); return; }
 
         const nomeArquivo = `${titulo.replace(/\s+/g, '_')}_${app.currentInstituicao?.nome || 'inventário'}_${new Date().toISOString().split('T')[0]}`;
 
@@ -656,11 +634,10 @@ const app = {
         else if (format === 'xlsx') utils.exportXLSX(data, nomeArquivo, titulo, instNome, dataGeracao, usuario);
         else if (format === 'pdf') utils.exportPDFReport(data, nomeArquivo, titulo, instNome, dataGeracao, usuario);
 
-        alert(`✅ Relatório "${titulo}" gerado com sucesso!\n\n${data.length} registros exportados em ${format.toUpperCase()}`);
+        alert(`✅ Relatório "${titulo}" gerado!\n\n${data.length} registros em ${format.toUpperCase()}`);
     },
-
     openUserManagement: () => {
-        if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores podem gerenciar usuários'); return; }
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
         app.users.init();
         const users = app.users.getAll();
         const container = document.getElementById('users-list');
@@ -684,15 +661,16 @@ const app = {
     },
 
     closeUserManagement: () => { document.getElementById('user-management-modal').classList.add('hidden'); },
+
     createUser: () => {
-        if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores podem criar usuários'); return; }
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
         const name = document.getElementById('new-user-name').value.trim();
         const username = document.getElementById('new-user-username').value.trim();
         const password = document.getElementById('new-user-password').value;
         const level = document.getElementById('new-user-level').value;
         if (!name || !username || !password) { alert('Preencha todos os campos'); return; }
         if (username.includes(' ')) { alert('Usuário não pode ter espaços'); return; }
-        if (app.users.get(username)) { alert('Este nome de usuário já existe'); return; }
+        if (app.users.get(username)) { alert('Usuário já existe'); return; }
         app.users.create({ name, username, password, level });
         alert(`Usuário criado!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level].name}`);
         document.getElementById('new-user-name').value = '';
@@ -705,18 +683,17 @@ const app = {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
         const user = app.users.get(username);
         if (!user) return;
-        const newLevel = prompt(`Alterar nível de acesso para ${user.name}?\n\nAtual: ${app.accessLevels[user.level].name}\n\nDigite:\n- admin\n- editor\n- viewer`, user.level);
-        if (newLevel && ['admin', 'editor', 'viewer'].includes(newLevel)) {
-            user.level = newLevel;
+        const newLevel = prompt(`Alterar nível de ${user.name}?\n\nAtual: ${app.accessLevels[user.level].name}\n\nDigite: admin, editor ou viewer`, user.level);
+        if (newLevel && ['admin', 'editor', 'viewer'].includes(newLevel)) {            user.level = newLevel;
             app.users.create(user);
             alert(`Nível alterado para: ${app.accessLevels[newLevel].name}`);
-        } else if (newLevel) { alert('Nível inválido'); }
-        if (confirm('Deseja alterar a senha deste usuário?')) {
-            const newPassword = prompt('Digite a nova senha:');
+        }
+        if (confirm('Deseja alterar a senha?')) {
+            const newPassword = prompt('Nova senha:');
             if (newPassword && newPassword.trim()) {
                 user.password = newPassword.trim();
                 app.users.create(user);
-                alert('Senha alterada com sucesso!');
+                alert('Senha alterada!');
             }
         }
         app.openUserManagement();
@@ -724,16 +701,17 @@ const app = {
 
     deleteUser: (username) => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
-        if (confirm(`Excluir usuário ${username}?\n\nEsta ação revoga o acesso permanentemente.`)) {
+        if (confirm(`Excluir usuário ${username}?`)) {
             app.users.delete(username);
             app.openUserManagement();
         }
     },
 
     openInstituicaoManagement: () => {
-        if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores podem gerenciar unidades'); return; }
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
         app.instituicoes.init();
-        const instituicoes = app.instituicoes.getAll();        const container = document.getElementById('instituicoes-list');
+        const instituicoes = app.instituicoes.getAll();
+        const container = document.getElementById('instituicoes-list');
         if (!container) return;
         container.innerHTML = '';
         instituicoes.forEach(inst => {
@@ -755,9 +733,8 @@ const app = {
 
     createInstituicao: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
-        const nome = document.getElementById('new-inst-nome').value.trim();
-        const cidade = document.getElementById('new-inst-cidade').value.trim();
-        if (!nome) { alert('Informe o nome da unidade'); return; }
+        const nome = document.getElementById('new-inst-nome').value.trim();        const cidade = document.getElementById('new-inst-cidade').value.trim();
+        if (!nome) { alert('Informe o nome'); return; }
         app.instituicoes.create({ nome, cidade });
         alert(`Unidade criada!\n\n${nome}${cidade ? ' - ' + cidade : ''}`);
         document.getElementById('new-inst-nome').value = '';
@@ -767,7 +744,7 @@ const app = {
 
     deleteInstituicao: (id) => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
-        if (confirm('Excluir esta unidade? Os itens NÃO serão apagados, mas ficarão sem vínculo.')) {
+        if (confirm('Excluir esta unidade?')) {
             app.instituicoes.delete(id);
             app.openInstituicaoManagement();
         }
@@ -782,13 +759,14 @@ const app = {
         create: (userData) => { localStorage.setItem(`user_${userData.username}`, JSON.stringify(userData)); },
         getAll: () => {
             const users = [];
-            for (let i = 0; i < localStorage.length; i++) {                const key = localStorage.key(i);
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
                 if (key && key.startsWith('user_')) { try { users.push(JSON.parse(localStorage.getItem(key))); } catch (e) {} }
             }
             return users;
         },
         get: (username) => { const data = localStorage.getItem(`user_${username}`); return data ? JSON.parse(data) : null; },
-        delete: (username) => { if (username === 'admin') { alert('Não pode excluir o admin principal'); return; } localStorage.removeItem(`user_${username}`); }
+        delete: (username) => { if (username === 'admin') { alert('Não pode excluir o admin'); return; } localStorage.removeItem(`user_${username}`); }
     },
 
     instituicoes: {
@@ -804,8 +782,7 @@ const app = {
         getAll: () => {
             const instituicoes = [];
             for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('inst_')) { try { instituicoes.push(JSON.parse(localStorage.getItem(key))); } catch (e) {} }
+                const key = localStorage.key(i);                if (key && key.startsWith('inst_')) { try { instituicoes.push(JSON.parse(localStorage.getItem(key))); } catch (e) {} }
             }
             return instituicoes;
         },
