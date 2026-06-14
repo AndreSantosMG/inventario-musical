@@ -3,7 +3,13 @@ const app = {
     currentUser: null,
     currentInstituicao: null,
     scanner: null,
+    auditScanner: null,
     currentItem: null,
+    auditSession: {
+        pending: [],
+        returned: [],
+        startTime: null
+    },
 
     init: async () => {
         await db.init();
@@ -41,14 +47,12 @@ const app = {
     },
 
     showLoginScreen: () => {
-        document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
-        const loginView = document.getElementById('view-login-required');
+        document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));        const loginView = document.getElementById('view-login-required');
         if (loginView) loginView.classList.remove('hidden');
     },
 
-    // VERSÃO ROBUSTA: NUNCA apaga usuários ou instituições
-    forceUpdate: () => {        if (confirm('Isso vai limpar o cache e recarregar.\n\nSeus USUÁRIOS e UNIDADES serão PRESERVADOS.\n\nOK?')) {
-            // Lista de chaves que NUNCA podem ser apagadas
+    forceUpdate: () => {
+        if (confirm('Isso vai limpar o cache e recarregar.\n\nSeus USUÁRIOS e UNIDADES serão PRESERVADOS.\n\nOK?')) {
             const protectedKeys = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -56,18 +60,13 @@ const app = {
                     protectedKeys.push({ key, value: localStorage.getItem(key) });
                 }
             }
-            
             localStorage.clear();
-            
-            // Restaura as chaves protegidas
             protectedKeys.forEach(({ key, value }) => {
                 localStorage.setItem(key, value);
             });
-            
             if ('caches' in window) {
                 caches.keys().then(names => names.forEach(n => caches.delete(n)));
             }
-            
             window.location.reload(true);
         }
     },
@@ -90,6 +89,7 @@ const app = {
             document.getElementById('item-codigo').value = app.generateCode();
         }
         if (viewId === 'scanner') app.startScanner();
+        if (viewId === 'audit') app.renderAudit();
         if (viewId === 'reports') app.renderReports();
     },
 
@@ -225,6 +225,9 @@ const app = {
 
         const reportsBtn = document.getElementById('btn-reports');
         if (reportsBtn) reportsBtn.style.display = perms.canManageUsers ? 'block' : 'none';
+
+        const auditBtn = document.getElementById('btn-audit');
+        if (auditBtn) auditBtn.style.display = perms.canCreate ? 'block' : 'none';
     },
 
     saveItem: async (e) => {
@@ -241,9 +244,9 @@ const app = {
         } else {
             if (!confirm('Você não adicionou uma foto. Deseja continuar mesmo assim?')) return;
         }
-
         const item = {
-            codigo: document.getElementById('item-codigo').value,            categoria: document.getElementById('item-categoria').value,
+            codigo: document.getElementById('item-codigo').value,
+            categoria: document.getElementById('item-categoria').value,
             descricao: document.getElementById('item-descricao').value,
             foto: fotoBase64,
             observacao: document.getElementById('item-obs').value.trim(),
@@ -289,9 +292,9 @@ const app = {
                     <span class="text-xs px-2 py-1 rounded bg-gray-200">${item.status}</span>
                 </div>
             `;
-            container.appendChild(div);
-        });
+            container.appendChild(div);        });
     },
+
     filterItems: () => { app.renderList(); },
 
     renderDetail: async (codigo) => {
@@ -324,7 +327,7 @@ const app = {
             </div>
             <div class="bg-yellow-50 p-3 rounded mt-2 border border-yellow-200">
                 <div class="flex justify-between items-center mb-1">
-                    <p class="font-bold text-sm text-yellow-800">📝 Observações:</p>
+                    <p class="font-bold text-sm text-yellow-800"> Observações:</p>
                     <button id="btn-edit-obs" onclick="app.editObservation()" class="hidden text-xs bg-yellow-600 text-white px-3 py-1 rounded shadow">Editar</button>
                 </div>
                 <p id="detail-obs-text" class="text-sm text-gray-700 whitespace-pre-wrap">${obsText}</p>
@@ -338,10 +341,10 @@ const app = {
             <div class="mt-4">
                 <h4 class="font-bold text-sm mb-2">Histórico</h4>
                 <ul class="space-y-1">${historicoHtml}</ul>
-            </div>
-        `;
+            </div>        `;
 
-        setTimeout(() => {            const qrContainer = document.getElementById("detail-qrcode");
+        setTimeout(() => {
+            const qrContainer = document.getElementById("detail-qrcode");
             if (qrContainer) {
                 qrContainer.innerHTML = '';
                 new QRCode(qrContainer, { text: item.codigo, width: 150, height: 150 });
@@ -387,10 +390,10 @@ const app = {
             responsavel = prompt('Nome do responsável:') || responsavel;
             obs = prompt('Previsão de devolução:') || '-';
         } else if (newStatus === 'Manutenção') {
-            obs = prompt('Motivo / Nº OS:') || '-';
-        }
+            obs = prompt('Motivo / Nº OS:') || '-';        }
         app.currentItem.status = newStatus;
-        app.currentItem.responsavel = responsavel;        app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${responsavel}. Obs: ${obs}`);
+        app.currentItem.responsavel = responsavel;
+        app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${responsavel}. Obs: ${obs}`);
         await db.save(app.currentItem);
         alert(`Status: ${newStatus}`);
         app.renderDetail(app.currentItem.codigo);
@@ -436,10 +439,10 @@ const app = {
         app.currentItem.foto = fotoBase64;
         app.currentItem.historico.push(`Editado em ${new Date().toLocaleString()} por ${app.currentUser.name}`);
         await db.save(app.currentItem);
-        alert('Item atualizado!');
-        document.getElementById('edit-item-modal').classList.add('hidden');
+        alert('Item atualizado!');        document.getElementById('edit-item-modal').classList.add('hidden');
         app.renderDetail(app.currentItem.codigo);
-        app.renderList();    },
+        app.renderList();
+    },
 
     cancelEditItem: () => { document.getElementById('edit-item-modal').classList.add('hidden'); },
 
@@ -477,7 +480,7 @@ const app = {
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.codigo)}`;
             labelsHtml += `<div class="label"><img src="${qrUrl}" alt="QR Code" class="qr-img"><div class="label-text"><div class="label-code">${item.codigo}</div><div class="label-desc">${item.descricao}</div><div class="label-inst">${item.instituicaoNome || ''}</div></div></div>`;
         });
-        printWindow.document.write(`<html><head><title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }.container { display: flex; flex-wrap: wrap; gap: 15px; }.label { border: 1px dashed #ccc; padding: 10px; width: 180px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }.qr-img { width: 120px; height: 120px; margin-bottom: 8px; }.label-code { font-weight: bold; font-size: 12px; margin-bottom: 4px; }.label-desc { font-size: 10px; color: #555; word-wrap: break-word; }.label-inst { font-size: 9px; color: #888; margin-top: 4px; font-style: italic; }@media print { body { padding: 0; } .label { border: 1px solid #000; } .no-print { display: none; } }</style></head><body><div class="no-print" style="text-align:center; margin-bottom:20px;"><h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2><button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">️ Imprimir Agora</button></div><div class="container">${labelsHtml}</div></body></html>`);
+        printWindow.document.write(`<html><head><title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }.container { display: flex; flex-wrap: wrap; gap: 15px; }.label { border: 1px dashed #ccc; padding: 10px; width: 180px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }.qr-img { width: 120px; height: 120px; margin-bottom: 8px; }.label-code { font-weight: bold; font-size: 12px; margin-bottom: 4px; }.label-desc { font-size: 10px; color: #555; word-wrap: break-word; }.label-inst { font-size: 9px; color: #888; margin-top: 4px; font-style: italic; }@media print { body { padding: 0; } .label { border: 1px solid #000; } .no-print { display: none; } }</style></head><body><div class="no-print" style="text-align:center; margin-bottom:20px;"><h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2><button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">🖨️ Imprimir Agora</button></div><div class="container">${labelsHtml}</div></body></html>`);
         printWindow.document.close();
     },
 
@@ -485,10 +488,10 @@ const app = {
         app.scanner = new Html5Qrcode("reader");
         app.scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
             async (decodedText) => {
-                app.stopScanner();
-                if (!app.isLoggedIn) { alert(`Código: ${decodedText}\n(Faça login para ver detalhes)`); app.navigate('dashboard'); }
+                app.stopScanner();                if (!app.isLoggedIn) { alert(`Código: ${decodedText}\n(Faça login para ver detalhes)`); app.navigate('dashboard'); }
                 else {
-                    const item = await db.get(decodedText);                    if (item) app.renderDetail(decodedText);
+                    const item = await db.get(decodedText);
+                    if (item) app.renderDetail(decodedText);
                     else { alert('Item não encontrado.'); app.navigate('dashboard'); }
                 }
             }, () => { }).catch(err => { alert('Erro na câmera.'); app.navigate('dashboard'); });
@@ -499,7 +502,6 @@ const app = {
     exportCSV: async () => { utils.exportCSV(await db.getAll(app.currentInstituicao?.id)); },
     exportPDF: async () => { utils.exportPDF(await db.getAll(app.currentInstituicao?.id)); },
 
-    // VERSÃO ROBUSTA: Preserva usuários e instituições
     clearData: async () => {
         const items = await db.getAll();
         if (items.length > 0) {
@@ -511,7 +513,6 @@ const app = {
         }
         if (confirm('TEM CERTEZA ABSOLUTA? Isso apagará TODOS OS ITENS do celular.\n\nUSUÁRIOS E UNIDADES SERÃO PRESERVADOS.')) {
             await db.clear();
-            // Preserva usuários e instituições
             const protectedKeys = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -527,6 +528,244 @@ const app = {
         }
     },
 
+    // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO =====
+    
+    startAudit: async () => {
+        if (!app.isLoggedIn) {
+            alert('Faça login para iniciar conferência');
+            app.navigate('dashboard');
+            return;
+        }
+
+        // Carrega todos os itens emprestados        const allItems = await db.getAll(app.currentInstituicao?.id);
+        const emprestados = allItems.filter(i => i.status === 'Emprestado');
+
+        if (emprestados.length === 0) {
+            if (!confirm('Não há itens emprestados no momento.\n\nDeseja iniciar uma conferência mesmo assim? (Útil para conferir itens que serão emprestados)')) {
+                app.navigate('dashboard');
+                return;
+            }
+        }
+
+        // Inicializa sessão de auditoria
+        app.auditSession = {
+            pending: emprestados.map(i => ({
+                codigo: i.codigo,
+                descricao: i.descricao,
+                responsavel: i.responsavel,
+                categoria: i.categoria
+            })),
+            returned: [],
+            startTime: new Date().toISOString()
+        };
+
+        app.navigate('audit');
+    },
+
+    renderAudit: () => {
+        // Atualiza estatísticas
+        document.getElementById('audit-pendentes').textContent = app.auditSession.pending.length;
+        document.getElementById('audit-devolvidos').textContent = app.auditSession.returned.length;
+        document.getElementById('audit-total').textContent = app.auditSession.pending.length + app.auditSession.returned.length;
+
+        // Lista de pendentes
+        const pendingContainer = document.getElementById('audit-pending-list');
+        if (pendingContainer) {
+            if (app.auditSession.pending.length === 0) {
+                pendingContainer.innerHTML = '<p class="text-center text-green-600 py-4">✅ Todos os itens foram devolvidos!</p>';
+            } else {
+                pendingContainer.innerHTML = app.auditSession.pending.map(item => `
+                    <div class="bg-yellow-50 p-2 rounded border-l-4 border-yellow-500">
+                        <p class="font-bold text-sm">${item.codigo}</p>
+                        <p class="text-xs text-gray-600">${item.descricao}</p>
+                        <p class="text-xs text-gray-500">Responsável: ${item.responsavel || 'N/A'}</p>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Lista de devolvidos
+        const returnedContainer = document.getElementById('audit-returned-list');
+        if (returnedContainer) {            if (app.auditSession.returned.length === 0) {
+                returnedContainer.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum item devolvido ainda</p>';
+            } else {
+                returnedContainer.innerHTML = app.auditSession.returned.map(item => `
+                    <div class="bg-green-50 p-2 rounded border-l-4 border-green-500">
+                        <p class="font-bold text-sm">${item.codigo}</p>
+                        <p class="text-xs text-gray-600">${item.descricao}</p>
+                        <p class="text-xs text-green-600">Devolvido em: ${item.returnedAt}</p>
+                    </div>
+                `).join('');
+            }
+        }
+    },
+
+    startAuditScanner: () => {
+        const container = document.getElementById('audit-reader-container');
+        if (container) container.classList.remove('hidden');
+
+        app.auditScanner = new Html5Qrcode("audit-reader");
+        app.auditScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            async (decodedText) => {
+                await app.processAuditScan(decodedText);
+            },
+            () => { }
+        ).catch(err => {
+            alert('Erro ao iniciar câmera: ' + err);
+            app.stopAuditScanner();
+        });
+    },
+
+    stopAuditScanner: () => {
+        if (app.auditScanner) {
+            app.auditScanner.stop().catch(() => {});
+            app.auditScanner = null;
+        }
+        const container = document.getElementById('audit-reader-container');
+        if (container) container.classList.add('hidden');
+    },
+
+    processAuditScan: async (codigo) => {
+        // Verifica se o item existe no banco
+        const item = await db.get(codigo);
+        
+        if (!item) {
+            alert(`❌ Item ${codigo} não encontrado no banco de dados.`);
+            return;
+        }
+        // Verifica se está na lista de pendentes
+        const pendingIndex = app.auditSession.pending.findIndex(p => p.codigo === codigo);
+        
+        if (pendingIndex === -1) {
+            // Verifica se já foi devolvido nesta sessão
+            const alreadyReturned = app.auditSession.returned.find(r => r.codigo === codigo);
+            if (alreadyReturned) {
+                alert(`⚠️ Item ${codigo} já foi marcado como devolvido nesta sessão.`);
+            } else {
+                alert(`⚠️ Item ${codigo} não está na lista de pendentes (pode já estar como Ativo).`);
+            }
+            return;
+        }
+
+        // Confirma a devolução
+        const itemInfo = app.auditSession.pending[pendingIndex];
+        if (!confirm(`✅ Confirmar devolução?\n\n${itemInfo.codigo}\n${itemInfo.descricao}\nResponsável: ${itemInfo.responsavel || 'N/A'}`)) {
+            return;
+        }
+
+        // Atualiza o item no banco
+        const now = new Date();
+        const dataDevolucao = now.toLocaleString('pt-BR');
+        
+        item.status = 'Ativo';
+        item.historico.push(`Devolvido em ${dataDevolucao} por ${app.currentUser.name} (Conferência)`);
+        item.responsavel = null;
+        
+        await db.save(item);
+
+        // Move da lista de pendentes para devolvidos
+        app.auditSession.pending.splice(pendingIndex, 1);
+        app.auditSession.returned.push({
+            codigo: itemInfo.codigo,
+            descricao: itemInfo.descricao,
+            responsavel: itemInfo.responsavel,
+            categoria: itemInfo.categoria,
+            returnedAt: dataDevolucao
+        });
+
+        // Feedback visual e sonoro (vibração se disponível)
+        if (navigator.vibrate) {
+            navigator.vibrate(200);
+        }
+
+        alert(`✅ Item devolvido com sucesso!\n\n${itemInfo.codigo}\n${itemInfo.descricao}`);
+
+        // Atualiza a tela
+        app.renderAudit();
+        app.updateDashboard();
+        // Verifica se todos foram devolvidos
+        if (app.auditSession.pending.length === 0) {
+            setTimeout(() => {
+                alert('🎉 Todos os itens foram devolvidos!\n\nVocê pode gerar o relatório de conferência.');
+            }, 500);
+        }
+    },
+
+    generateAuditReport: async () => {
+        if (app.auditSession.returned.length === 0 && app.auditSession.pending.length === 0) {
+            alert('Nenhuma conferência em andamento.');
+            return;
+        }
+
+        const format = prompt('Escolha o formato do relatório:\n\n1 - PDF\n2 - XLSX (Excel)\n3 - CSV\n\nDigite o número:', '1');
+        
+        if (!['1', '2', '3'].includes(format)) {
+            alert('Formato inválido.');
+            return;
+        }
+
+        const dataGeracao = new Date().toLocaleString('pt-BR');
+        const inicioSessao = new Date(app.auditSession.startTime).toLocaleString('pt-BR');
+        
+        let data = [];
+        let titulo = 'Relatório de Conferência de Devolução';
+
+        // Itens devolvidos
+        app.auditSession.returned.forEach(item => {
+            data.push({
+                'Código': item.codigo,
+                'Descrição': item.descricao,
+                'Categoria': item.categoria,
+                'Responsável Original': item.responsavel || '-',
+                'Status': 'Devolvido',
+                'Data/Hora Devolução': item.returnedAt,
+                'Conferido por': app.currentUser.name
+            });
+        });
+
+        // Itens pendentes
+        app.auditSession.pending.forEach(item => {
+            data.push({
+                'Código': item.codigo,
+                'Descrição': item.descricao,
+                'Categoria': item.categoria,
+                'Responsável Original': item.responsavel || '-',
+                'Status': 'PENDENTE',
+                'Data/Hora Devolução': '-',                'Conferido por': app.currentUser.name
+            });
+        });
+
+        if (data.length === 0) {
+            alert('Nenhum dado para gerar relatório.');
+            return;
+        }
+
+        const nomeArquivo = `Conferencia_Devolucao_${app.currentInstituicao?.nome || 'inventário'}_${new Date().toISOString().split('T')[0]}`;
+
+        if (format === '3') {
+            utils.exportCSVReport(data, nomeArquivo);
+        } else if (format === '2') {
+            utils.exportXLSX(data, nomeArquivo, titulo, app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
+        } else if (format === '1') {
+            utils.exportPDFReport(data, nomeArquivo, titulo, app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
+        }
+
+        alert(`✅ Relatório gerado!\n\nDevolvidos: ${app.auditSession.returned.length}\nPendentes: ${app.auditSession.pending.length}`);
+    },
+
+    resetAudit: () => {
+        if (!confirm('Iniciar nova conferência?\n\nA sessão atual será encerrada.')) {
+            return;
+        }
+        app.startAudit();
+    },
+
+    stopAudit: () => {
+        app.stopAuditScanner();
+    },
+
     renderReports: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem acessar relatórios');
@@ -536,13 +775,13 @@ const app = {
 
         const reports = [
             { id: 'completo', icon: '📋', title: 'Inventário Completo', description: 'Lista todos os itens', color: 'blue' },
-            { id: 'emprestados', icon: '📤', title: 'Itens Emprestados', description: 'Itens emprestados', color: 'yellow' },
-            { id: 'manutencao', icon: '🔧', title: 'Itens em Manutenção', description: 'Status manutenção', color: 'orange' },            { id: 'baixados', icon: '🗑️', title: 'Itens Baixados', description: 'Itens retirados', color: 'red' },
-            { id: 'observacoes', icon: '📝', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
-            { id: 'categorias', icon: '', title: 'Resumo por Categoria', description: 'Quantitativo por categoria', color: 'purple' },
+            { id: 'emprestados', icon: '', title: 'Itens Emprestados', description: 'Itens emprestados', color: 'yellow' },
+            { id: 'manutencao', icon: '🔧', title: 'Itens em Manutenção', description: 'Status manutenção', color: 'orange' },
+            { id: 'baixados', icon: '🗑️', title: 'Itens Baixados', description: 'Itens retirados', color: 'red' },
+            { id: 'observacoes', icon: '', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
+            { id: 'categorias', icon: '📊', title: 'Resumo por Categoria', description: 'Quantitativo por categoria', color: 'purple' },
             { id: 'historico', icon: '📜', title: 'Histórico', description: 'Log de alterações', color: 'indigo' }
         ];
-
         const container = document.getElementById('reports-list');
         if (!container) return;
         container.innerHTML = '';
@@ -586,13 +825,13 @@ const app = {
                 titulo = 'Itens Emprestados';
                 data = items.filter(i => i.status === 'Emprestado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-', 'Data Entrada': i.dataEntrada || '-' }));
                 if (data.length === 0) { alert('Nenhum item emprestado.'); return; }
-                break;            case 'manutencao':
+                break;
+            case 'manutencao':
                 titulo = 'Itens em Manutenção';
                 data = items.filter(i => i.status === 'Manutenção').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-' }));
                 if (data.length === 0) { alert('Nenhum item em manutenção.'); return; }
                 break;
-            case 'baixados':
-                titulo = 'Itens Baixados';
+            case 'baixados':                titulo = 'Itens Baixados';
                 data = items.filter(i => i.status === 'Baixado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao }));
                 if (data.length === 0) { alert('Nenhum item baixado.'); return; }
                 break;
@@ -636,12 +875,12 @@ const app = {
 
         alert(`✅ Relatório "${titulo}" gerado!\n\n${data.length} registros em ${format.toUpperCase()}`);
     },
+
     openUserManagement: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
         app.users.init();
         const users = app.users.getAll();
-        const container = document.getElementById('users-list');
-        if (!container) return;
+        const container = document.getElementById('users-list');        if (!container) return;
         container.innerHTML = '';
         users.forEach(user => {
             const div = document.createElement('div');
@@ -684,13 +923,13 @@ const app = {
         const user = app.users.get(username);
         if (!user) return;
         const newLevel = prompt(`Alterar nível de ${user.name}?\n\nAtual: ${app.accessLevels[user.level].name}\n\nDigite: admin, editor ou viewer`, user.level);
-        if (newLevel && ['admin', 'editor', 'viewer'].includes(newLevel)) {            user.level = newLevel;
+        if (newLevel && ['admin', 'editor', 'viewer'].includes(newLevel)) {
+            user.level = newLevel;
             app.users.create(user);
             alert(`Nível alterado para: ${app.accessLevels[newLevel].name}`);
         }
         if (confirm('Deseja alterar a senha?')) {
-            const newPassword = prompt('Nova senha:');
-            if (newPassword && newPassword.trim()) {
+            const newPassword = prompt('Nova senha:');            if (newPassword && newPassword.trim()) {
                 user.password = newPassword.trim();
                 app.users.create(user);
                 alert('Senha alterada!');
@@ -733,13 +972,13 @@ const app = {
 
     createInstituicao: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
-        const nome = document.getElementById('new-inst-nome').value.trim();        const cidade = document.getElementById('new-inst-cidade').value.trim();
+        const nome = document.getElementById('new-inst-nome').value.trim();
+        const cidade = document.getElementById('new-inst-cidade').value.trim();
         if (!nome) { alert('Informe o nome'); return; }
         app.instituicoes.create({ nome, cidade });
         alert(`Unidade criada!\n\n${nome}${cidade ? ' - ' + cidade : ''}`);
         document.getElementById('new-inst-nome').value = '';
-        document.getElementById('new-inst-cidade').value = '';
-        app.openInstituicaoManagement();
+        document.getElementById('new-inst-cidade').value = '';        app.openInstituicaoManagement();
     },
 
     deleteInstituicao: (id) => {
@@ -782,13 +1021,13 @@ const app = {
         getAll: () => {
             const instituicoes = [];
             for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);                if (key && key.startsWith('inst_')) { try { instituicoes.push(JSON.parse(localStorage.getItem(key))); } catch (e) {} }
+                const key = localStorage.key(i);
+                if (key && key.startsWith('inst_')) { try { instituicoes.push(JSON.parse(localStorage.getItem(key))); } catch (e) {} }
             }
             return instituicoes;
         },
         get: (id) => { const data = localStorage.getItem(`inst_${id}`); return data ? JSON.parse(data) : null; },
-        delete: (id) => { if (id === 'default') { alert('Não pode excluir a unidade padrão'); return; } localStorage.removeItem(`inst_${id}`); }
-    },
+        delete: (id) => { if (id === 'default') { alert('Não pode excluir a unidade padrão'); return; } localStorage.removeItem(`inst_${id}`); }    },
 
     accessLevels: {
         admin: { name: 'Administrador', canCreate: true, canEdit: true, canDelete: true, canBorrow: true, canMaintenance: true, canSync: true, canManageUsers: true },
