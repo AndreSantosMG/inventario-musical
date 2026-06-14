@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inventario-v2'; // Versão atualizada para forçar refresh
+const CACHE_NAME = 'inventario-v3';
 const urlsToCache = [
   './',
   './index.html',
@@ -28,7 +28,6 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Apaga o cache antigo automaticamente
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
