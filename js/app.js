@@ -9,13 +9,13 @@ const app = {
         app.users.init();
         
         // Restaurar sessão automaticamente
-        const savedUser = localStorage.getItem('sessionUser');
-        if (savedUser) {
-            const user = app.users.get(savedUser);
+        const savedUserKey = localStorage.getItem('sessionUser');
+        if (savedUserKey) {
+            const user = app.users.get(savedUserKey);
             if (user) {
                 app.isLoggedIn = true;
                 app.currentUser = user;
-                document.getElementById('btn-login-toggle').textContent = ` ${user.name}`;
+                document.getElementById('btn-login-toggle').textContent = `🔓 ${user.name}`;
                 app.applyPermissions(app.accessLevels[user.level]);
             }
         }
@@ -35,11 +35,6 @@ const app = {
         if (viewId === 'dashboard') app.renderList();
         if (viewId === 'add') {
             document.getElementById('item-codigo').value = utils.generateCode();
-            document.getElementById('qrcode-container').innerHTML = '';
-            new QRCode(document.getElementById("qrcode-container"), {
-                text: document.getElementById('item-codigo').value,
-                width: 128, height: 128
-            });
         }
         if (viewId === 'scanner') app.startScanner();
     },
@@ -48,7 +43,7 @@ const app = {
         if (app.isLoggedIn) {
             app.isLoggedIn = false;
             app.currentUser = null;
-            localStorage.removeItem('sessionUser'); // Limpa a sessão salva
+            localStorage.removeItem('sessionUser');
             document.getElementById('btn-login-toggle').textContent = '🔒';
             document.getElementById('admin-actions').classList.add('hidden');
             app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
@@ -59,7 +54,7 @@ const app = {
     },
 
     doLogin: () => {
-        const u = document.getElementById('login-user').value;
+        const u = document.getElementById('login-user').value.trim();
         const p = document.getElementById('login-pass').value;
         
         const user = app.users.get(u);
@@ -92,6 +87,9 @@ const app = {
         
         const userMgmtBtn = document.getElementById('btn-user-management');
         if (userMgmtBtn) userMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
+
+        const printBtn = document.querySelector('button[onclick="app.printLabels()"]');
+        if (printBtn) printBtn.style.display = perms.canCreate ? 'block' : 'none';
     },
 
     saveItem: async (e) => {
@@ -113,7 +111,7 @@ const app = {
         };
 
         await db.save(item);
-        alert('Item salvo com sucesso!');
+        alert('Item salvo!');
         document.getElementById('form-add').reset();
         app.navigate('dashboard');
         app.updateDashboard();
@@ -134,7 +132,7 @@ const app = {
                 <div class="flex justify-between items-center cursor-pointer" onclick="app.renderDetail('${item.codigo}')">
                     <div>
                         <p class="font-bold text-sm">${item.codigo}</p>
-                        <p class="text-xs text-gray-600">${item.descricao} (${item.categoria})</p>
+                        <p class="text-xs text-gray-600">${item.descricao}</p>
                     </div>
                     <span class="text-xs px-2 py-1 rounded bg-gray-200">${item.status}</span>
                 </div>
@@ -143,9 +141,7 @@ const app = {
         });
     },
 
-    filterItems: () => {
-        app.renderList();
-    },
+    filterItems: () => { app.renderList(); },
 
     renderDetail: async (codigo) => {
         const item = await db.get(codigo);
@@ -161,13 +157,13 @@ const app = {
             <div class="bg-gray-100 p-3 rounded mt-2">
                 <p><strong>Status:</strong> ${item.status}</p>
                 <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>
-                <p><strong>Data Entrada:</strong> ${item.dataEntrada}</p>
             </div>
             
-            <div class="mt-4 bg-white p-4 rounded-lg shadow text-center">
-                <p class="text-sm font-bold mb-2">QR Code do Item</p>
+            <div class="mt-4 bg-white p-4 rounded-lg shadow text-center border">
+                <p class="text-sm font-bold mb-2">QR Code</p>
                 <div id="detail-qrcode" class="flex justify-center mb-2"></div>
-                <p class="text-xs text-gray-600">${item.codigo}</p>
+                <p class="text-xs font-mono text-gray-600 break-all">${item.codigo}</p>
+                <p class="text-xs text-gray-500 mt-1">${item.descricao}</p>
             </div>
             
             <div class="mt-4">
@@ -176,11 +172,14 @@ const app = {
             </div>
         `;
 
-        new QRCode(document.getElementById("detail-qrcode"), {
-            text: item.codigo,
-            width: 150,
-            height: 150
-        });
+        // Gera o QR Code após o HTML ser inserido
+        setTimeout(() => {
+            new QRCode(document.getElementById("detail-qrcode"), {
+                text: item.codigo,
+                width: 150,
+                height: 150
+            });
+        }, 100);
 
         if (app.isLoggedIn) {
             document.getElementById('admin-actions').classList.remove('hidden');
@@ -196,10 +195,10 @@ const app = {
         let obs = '';
 
         if (newStatus === 'Emprestado') {
-            responsavel = prompt('Nome do responsável pelo empréstimo:') || responsavel;
-            obs = prompt('Data prevista de devolução (DD/MM/AAAA):') || 'Não definida';
+            responsavel = prompt('Nome do responsável:') || responsavel;
+            obs = prompt('Previsão de devolução:') || '-';
         } else if (newStatus === 'Manutenção') {
-            obs = prompt('Motivo da Manutenção / Nº OS:') || 'OS pendente';
+            obs = prompt('Motivo / Nº OS:') || '-';
         }
 
         app.currentItem.status = newStatus;
@@ -207,20 +206,20 @@ const app = {
         app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${responsavel}. Obs: ${obs}`);
         
         await db.save(app.currentItem);
-        alert(`Status atualizado para: ${newStatus}`);
+        alert(`Status: ${newStatus}`);
         app.renderDetail(app.currentItem.codigo);
         app.updateDashboard();
     },
 
     baixarItem: async () => {
         if (!app.isLoggedIn) return;
-        const motivo = prompt('Motivo da baixa (Extravio, Sucata, Doação):');
+        const motivo = prompt('Motivo da baixa:');
         if (!motivo) return;
 
         app.currentItem.status = 'Baixado';
-        app.currentItem.historico.push(`BAIXA em ${new Date().toLocaleString()} por ${app.currentUser.name || app.currentUser.username}. Motivo: ${motivo}`);
+        app.currentItem.historico.push(`BAIXA em ${new Date().toLocaleString()} por ${app.currentUser.name}. Motivo: ${motivo}`);
         await db.save(app.currentItem);
-        alert('Item baixado com sucesso.');
+        alert('Baixado.');
         app.navigate('dashboard');
         app.updateDashboard();
     },
@@ -233,6 +232,75 @@ const app = {
         document.getElementById('dash-ativos').textContent = items.filter(i => i.status === 'Ativo').length;
     },
 
+    // FUNÇÃO DE IMPRESSÃO DE ETIQUETAS
+    printLabels: async () => {
+        const items = await db.getAll();
+        if (items.length === 0) {
+            alert('Nenhum item cadastrado.');
+            return;
+        }
+
+        // Abre uma nova janela para impressão
+        const printWindow = window.open('', '_blank');
+        
+        let labelsHtml = '';
+        items.forEach(item => {
+            // Usa API pública para gerar a imagem do QR Code na impressão
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.codigo)}`;
+            labelsHtml += `
+                <div class="label">
+                    <img src="${qrUrl}" alt="QR Code" class="qr-img">
+                    <div class="label-text">
+                        <div class="label-code">${item.codigo}</div>
+                        <div class="label-desc">${item.descricao}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Etiquetas de Inventário</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+                    .container { display: flex; flex-wrap: wrap; gap: 15px; justify-content: flex-start; }
+                    .label { 
+                        border: 1px dashed #ccc; 
+                        padding: 10px; 
+                        width: 180px; 
+                        text-align: center; 
+                        page-break-inside: avoid;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }
+                    .qr-img { width: 120px; height: 120px; margin-bottom: 8px; }
+                    .label-code { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+                    .label-desc { font-size: 10px; color: #555; word-wrap: break-word; }
+                    
+                    @media print {
+                        body { padding: 0; }
+                        .label { border: 1px solid #000; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="no-print" style="text-align:center; margin-bottom:20px;">
+                    <h2>Pré-visualização de Etiquetas (${items.length} itens)</h2>
+                    <p>Clique no botão abaixo ou pressione Ctrl+P para imprimir.</p>
+                    <button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">️ Imprimir Agora</button>
+                </div>
+                <div class="container">
+                    ${labelsHtml}
+                </div>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    },
+
     startScanner: () => {
         app.scanner = new Html5Qrcode("reader");
         app.scanner.start(
@@ -241,47 +309,32 @@ const app = {
             async (decodedText) => {
                 app.stopScanner();
                 if (!app.isLoggedIn) {
-                    alert(`Código Escaneado:\n\n${decodedText}\n\n(Faça login para ver detalhes)`);
+                    alert(`Código: ${decodedText}\n(Faça login para ver detalhes)`);
                     app.navigate('dashboard');
                 } else {
                     const item = await db.get(decodedText);
-                    if (item) {
-                        app.renderDetail(decodedText);
-                    } else {
-                        alert('Item não encontrado no banco local.');
-                        app.navigate('dashboard');
-                    }
+                    if (item) app.renderDetail(decodedText);
+                    else { alert('Item não encontrado.'); app.navigate('dashboard'); }
                 }
             },
-            (errorMessage) => { }
+            () => { }
         ).catch(err => {
-            alert('Erro ao iniciar câmera. Verifique as permissões.');
+            alert('Erro na câmera.');
             app.navigate('dashboard');
         });
     },
 
     stopScanner: () => {
-        if (app.scanner) {
-            app.scanner.stop().catch(() => {});
-            app.scanner = null;
-        }
+        if (app.scanner) { app.scanner.stop().catch(() => {}); app.scanner = null; }
     },
 
-    exportCSV: async () => {
-        const items = await db.getAll();
-        utils.exportCSV(items);
-    },
-
-    exportPDF: async () => {
-        const items = await db.getAll();
-        utils.exportPDF(items);
-    },
+    exportCSV: async () => { utils.exportCSV(await db.getAll()); },
+    exportPDF: async () => { utils.exportPDF(await db.getAll()); },
 
     clearData: async () => {
-        if (confirm('TEM CERTEZA? Isso apagará TODOS os dados, fotos e o login. Esta ação não pode ser desfeita.')) {
+        if (confirm('TEM CERTEZA? Apagará TUDO.')) {
             await db.clear();
-            localStorage.clear(); // Limpa também a sessão e usuários
-            alert('Dados limpos. Recarregando...');
+            localStorage.clear();
             window.location.reload();
         }
     },
@@ -291,7 +344,6 @@ const app = {
         const users = app.users.getAll();
         const container = document.getElementById('users-list');
         container.innerHTML = '';
-        
         users.forEach(user => {
             const div = document.createElement('div');
             div.className = 'flex justify-between items-center p-2 bg-gray-100 rounded';
@@ -304,32 +356,27 @@ const app = {
             `;
             container.appendChild(div);
         });
-        
         document.getElementById('user-management-modal').classList.remove('hidden');
     },
 
-    closeUserManagement: () => {
-        document.getElementById('user-management-modal').classList.add('hidden');
-    },
+    closeUserManagement: () => { document.getElementById('user-management-modal').classList.add('hidden'); },
 
     createUser: () => {
-        const name = document.getElementById('new-user-name').value;
-        const username = document.getElementById('new-user-username').value;
+        const name = document.getElementById('new-user-name').value.trim();
+        const username = document.getElementById('new-user-username').value.trim();
         const password = document.getElementById('new-user-password').value;
         const level = document.getElementById('new-user-level').value;
         
-        if (!name || !username || !password) {
-            alert('Preencha todos os campos');
-            return;
-        }
+        if (!name || !username || !password) { alert('Preencha tudo'); return; }
+        if (username.includes(' ')) { alert('Usuário não pode ter espaços'); return; }
         
         app.users.create({ name, username, password, level });
-        alert('Usuário criado com sucesso!');
+        alert('Usuário criado!');
         app.openUserManagement();
     },
 
     deleteUser: (username) => {
-        if (confirm(`Excluir usuário ${username}?`)) {
+        if (confirm(`Excluir ${username}?`)) {
             app.users.delete(username);
             app.openUserManagement();
         }
@@ -339,74 +386,33 @@ const app = {
         init: () => {
             if (!localStorage.getItem('user_admin')) {
                 localStorage.setItem('user_admin', JSON.stringify({
-                    username: 'admin',
-                    password: 'musica2026',
-                    level: 'admin',
-                    name: 'Administrador'
+                    username: 'admin', password: 'musica2026', level: 'admin', name: 'Administrador'
                 }));
             }
         },
-        
-        create: (userData) => {
-            localStorage.setItem(`user_${userData.username}`, JSON.stringify(userData));
-        },
-        
+        create: (userData) => { localStorage.setItem(`user_${userData.username}`, JSON.stringify(userData)); },
         getAll: () => {
             const users = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key.startsWith('user_')) {
-                    users.push(JSON.parse(localStorage.getItem(key)));
-                }
+                if (key && key.startsWith('user_')) users.push(JSON.parse(localStorage.getItem(key)));
             }
             return users;
         },
-
         get: (username) => {
             const data = localStorage.getItem(`user_${username}`);
             return data ? JSON.parse(data) : null;
         },
-        
         delete: (username) => {
-            if (username === 'admin') {
-                alert('Não é possível remover o usuário admin principal');
-                return;
-            }
+            if (username === 'admin') { alert('Não pode excluir o admin'); return; }
             localStorage.removeItem(`user_${username}`);
         }
     },
 
     accessLevels: {
-        admin: {
-            name: 'Administrador',
-            canCreate: true,
-            canEdit: true,
-            canDelete: true,
-            canBorrow: true,
-            canMaintenance: true,
-            canSync: true,
-            canManageUsers: true
-        },
-        editor: {
-            name: 'Editor',
-            canCreate: true,
-            canEdit: true,
-            canDelete: false,
-            canBorrow: true,
-            canMaintenance: true,
-            canSync: false,
-            canManageUsers: false
-        },
-        viewer: {
-            name: 'Visualizador',
-            canCreate: false,
-            canEdit: false,
-            canDelete: false,
-            canBorrow: false,
-            canMaintenance: false,
-            canSync: false,
-            canManageUsers: false
-        }
+        admin: { name: 'Administrador', canCreate: true, canEdit: true, canDelete: true, canBorrow: true, canMaintenance: true, canSync: true, canManageUsers: true },
+        editor: { name: 'Editor', canCreate: true, canEdit: true, canDelete: false, canBorrow: true, canMaintenance: true, canSync: false, canManageUsers: false },
+        viewer: { name: 'Visualizador', canCreate: false, canEdit: false, canDelete: false, canBorrow: false, canMaintenance: false, canSync: false, canManageUsers: false }
     }
 };
 
