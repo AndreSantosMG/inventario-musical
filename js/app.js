@@ -27,7 +27,6 @@ const app = {
             }
         }
 
-        // Se não está logado, mostra tela de login
         if (!app.isLoggedIn) {
             app.showLoginScreen();
         } else {
@@ -44,7 +43,8 @@ const app = {
     showLoginScreen: () => {
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
         document.getElementById('view-login-required').classList.remove('hidden');
-        document.getElementById('current-instituicao-display').classList.add('hidden');
+        const display = document.getElementById('current-instituicao-display');
+        if (display) display.classList.add('hidden');
     },
 
     forceUpdate: () => {
@@ -58,7 +58,6 @@ const app = {
     },
 
     navigate: (viewId) => {
-        // Bloqueia navegação se não estiver logado
         if (!app.isLoggedIn && viewId !== 'login-required') {
             app.showLoginScreen();
             return;
@@ -72,9 +71,16 @@ const app = {
             app.updateInstituicaoDisplay();
         }
         if (viewId === 'add') {
-            document.getElementById('item-codigo').value = utils.generateCode();
+            document.getElementById('item-codigo').value = app.generateCode();
         }
         if (viewId === 'scanner') app.startScanner();
+    },
+
+    // NOVA: Gera código com prefixo FDSF
+    generateCode: () => {
+        const year = new Date().getFullYear();
+        const random = Math.floor(10000 + Math.random() * 90000);
+        return `FDSF-${year}-${random}`;
     },
 
     updateInstituicaoDisplay: () => {
@@ -83,8 +89,7 @@ const app = {
             display.textContent = `📍 ${app.currentInstituicao.nome} - ${app.currentInstituicao.cidade || ''}`;
             display.classList.remove('hidden');
         } else {
-            display.textContent = '⚠️ Nenhuma unidade selecionada. Faça login.';
-            display.classList.remove('hidden');
+            display.classList.add('hidden');
         }
     },
 
@@ -106,20 +111,36 @@ const app = {
     },
 
     openLoginModal: () => {
+        // Popula dropdown de instituições
         const instituicoes = app.instituicoes.getAll();
-        const select = document.getElementById('login-instituicao');
-        select.innerHTML = '<option value="">-- Selecione sua unidade --</option>';
+        const selectInst = document.getElementById('login-instituicao');
+        selectInst.innerHTML = '<option value="">-- Selecione sua unidade --</option>';
         instituicoes.forEach(inst => {
             const option = document.createElement('option');
             option.value = inst.id;
             option.textContent = `${inst.nome} - ${inst.cidade || ''}`;
-            select.appendChild(option);
+            selectInst.appendChild(option);
         });
+
+        // Popula dropdown de usuários
+        const usuarios = app.users.getAll();
+        const selectUser = document.getElementById('login-user-select');
+        selectUser.innerHTML = '<option value="">-- Selecione seu usuário --</option>';
+        usuarios.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.username;
+            option.textContent = `${user.name} (${app.accessLevels[user.level].name})`;
+            selectUser.appendChild(option);
+        });
+
+        // Limpa senha
+        document.getElementById('login-pass').value = '';
+        
         document.getElementById('login-modal').classList.remove('hidden');
     },
 
     doLogin: () => {
-        const u = document.getElementById('login-user').value.trim();
+        const username = document.getElementById('login-user-select').value;
         const p = document.getElementById('login-pass').value;
         const instId = document.getElementById('login-instituicao').value;
         
@@ -127,37 +148,51 @@ const app = {
             alert('Selecione sua unidade/instituição');
             return;
         }
-        
-        const user = app.users.get(u);
-        
-        if (user && user.password === p) {
-            const instituicao = app.instituicoes.get(instId);
-            if (!instituicao) {
-                alert('Unidade não encontrada');
-                return;
-            }
-            
-            app.isLoggedIn = true;
-            app.currentUser = user;
-            app.currentInstituicao = instituicao;
-            
-            localStorage.setItem('sessionData', JSON.stringify({
-                username: u,
-                instituicao: instituicao
-            }));
-            
-            document.getElementById('btn-login-toggle').textContent = `🔓 ${user.name}`;
-            document.getElementById('login-modal').classList.add('hidden');
-            
-            app.applyPermissions(app.accessLevels[user.level]);
-            app.navigate('dashboard');
-            app.updateDashboard();
-            app.updateInstituicaoDisplay();
-            
-            if (app.currentItem) app.renderDetail(app.currentItem.codigo);
-        } else {
-            alert('Credenciais inválidas!');
+        if (!username) {
+            alert('Selecione seu usuário');
+            return;
         }
+        
+        const user = app.users.get(username);
+        
+        if (!user || user.password !== p) {
+            alert('Senha incorreta!');
+            return;
+        }
+
+        const instituicao = app.instituicoes.get(instId);
+        if (!instituicao) {
+            alert('Unidade não encontrada');
+            return;
+        }
+        
+        app.isLoggedIn = true;
+        app.currentUser = user;
+        app.currentInstituicao = instituicao;
+        
+        localStorage.setItem('sessionData', JSON.stringify({
+            username: username,
+            instituicao: instituicao
+        }));
+        
+        document.getElementById('btn-login-toggle').textContent = `🔓 ${user.name}`;
+        document.getElementById('login-modal').classList.add('hidden');
+        
+        app.applyPermissions(app.accessLevels[user.level]);
+        app.navigate('dashboard');
+        app.updateDashboard();
+        app.updateInstituicaoDisplay();
+        
+        // Mensagem de boas-vindas
+        const hora = new Date().getHours();
+        let saudacao = 'Olá';
+        if (hora < 12) saudacao = 'Bom dia';
+        else if (hora < 18) saudacao = 'Boa tarde';
+        else saudacao = 'Boa noite';
+        
+        setTimeout(() => {
+            alert(`${saudacao}, ${user.name}!\n\nBem-vindo(a) ao sistema de Inventário.\nUnidade: ${instituicao.nome}`);
+        }, 300);
     },
 
     closeLogin: () => {
@@ -193,7 +228,6 @@ const app = {
         if (fileInput.files[0]) {
             fotoBase64 = await utils.compressImage(fileInput.files[0]);
         } else {
-            // Confirmação se não tem foto
             if (!confirm('Você não adicionou uma foto. Deseja continuar mesmo assim?')) {
                 return;
             }
@@ -333,15 +367,12 @@ const app = {
             alert('Apenas administradores podem editar observações.');
             return;
         }
-        
         const currentObs = app.currentItem.observacao || '';
         const newObs = prompt('Editar observação (deixe vazio para apagar):', currentObs);
-        
         if (newObs !== null) {
             app.currentItem.observacao = newObs.trim();
             const acao = newObs.trim() !== '' ? 'Observação atualizada' : 'Observação limpa';
             app.currentItem.historico.push(`${acao} em ${new Date().toLocaleString()} por ${app.currentUser.name}.`);
-            
             await db.save(app.currentItem);
             app.renderDetail(app.currentItem.codigo);
             app.renderList();
@@ -352,18 +383,15 @@ const app = {
         if (!app.isLoggedIn) return;
         let responsavel = app.currentUser.name || app.currentUser.username;
         let obs = '';
-
         if (newStatus === 'Emprestado') {
             responsavel = prompt('Nome do responsável:') || responsavel;
             obs = prompt('Previsão de devolução:') || '-';
         } else if (newStatus === 'Manutenção') {
             obs = prompt('Motivo / Nº OS:') || '-';
         }
-
         app.currentItem.status = newStatus;
         app.currentItem.responsavel = responsavel;
         app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${responsavel}. Obs: ${obs}`);
-        
         await db.save(app.currentItem);
         alert(`Status: ${newStatus}`);
         app.renderDetail(app.currentItem.codigo);
@@ -374,7 +402,6 @@ const app = {
         if (!app.isLoggedIn) return;
         const motivo = prompt('Motivo da baixa:');
         if (!motivo) return;
-
         app.currentItem.status = 'Baixado';
         app.currentItem.historico.push(`BAIXA em ${new Date().toLocaleString()} por ${app.currentUser.name}. Motivo: ${motivo}`);
         await db.save(app.currentItem);
@@ -383,47 +410,45 @@ const app = {
         app.updateDashboard();
     },
 
-    // NOVA FUNÇÃO: Editar item
     editItem: async () => {
         if (!app.isLoggedIn || !app.currentUser) {
             alert('Faça login para editar');
             return;
         }
-
         const item = app.currentItem;
-        
-        // Abre modal de edição
         document.getElementById('edit-codigo').value = item.codigo;
         document.getElementById('edit-categoria').value = item.categoria;
         document.getElementById('edit-descricao').value = item.descricao;
         document.getElementById('edit-obs').value = item.observacao || '';
-        document.getElementById('edit-foto-preview').src = item.foto || '';
-        document.getElementById('edit-foto-preview').style.display = item.foto ? 'block' : 'none';
-        
+        const preview = document.getElementById('edit-foto-preview');
+        if (item.foto && !item.foto.startsWith('data:image')) {
+            // Foto é URL do Drive
+            preview.src = item.foto;
+            preview.style.display = 'block';
+        } else if (item.foto) {
+            preview.src = item.foto;
+            preview.style.display = 'block';
+        } else {
+            preview.style.display = 'none';
+        }
         document.getElementById('edit-item-modal').classList.remove('hidden');
     },
 
     saveEditItem: async () => {
         if (!app.isLoggedIn || !app.currentUser) return;
-
         const fileInput = document.getElementById('edit-foto');
-        let fotoBase64 = app.currentItem.foto; // Mantém foto atual
-        
+        let fotoBase64 = app.currentItem.foto;
         if (fileInput.files[0]) {
             fotoBase64 = await utils.compressImage(fileInput.files[0]);
             app.currentItem.historico.push(`Foto atualizada em ${new Date().toLocaleString()} por ${app.currentUser.name}`);
         }
-
         app.currentItem.categoria = document.getElementById('edit-categoria').value;
         app.currentItem.descricao = document.getElementById('edit-descricao').value;
         app.currentItem.observacao = document.getElementById('edit-obs').value.trim();
         app.currentItem.foto = fotoBase64;
-        
         app.currentItem.historico.push(`Editado em ${new Date().toLocaleString()} por ${app.currentUser.name}`);
-
         await db.save(app.currentItem);
         alert('Item atualizado!');
-        
         document.getElementById('edit-item-modal').classList.add('hidden');
         app.renderDetail(app.currentItem.codigo);
         app.renderList();
@@ -433,26 +458,19 @@ const app = {
         document.getElementById('edit-item-modal').classList.add('hidden');
     },
 
-    // NOVA FUNÇÃO: Excluir item definitivamente
     deleteItem: async () => {
         if (!app.isLoggedIn || !app.currentUser || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem excluir itens');
             return;
         }
-
         const item = app.currentItem;
-        
         if (!confirm(`ATENÇÃO! Excluir permanentemente o item ${item.codigo}?\n\n${item.descricao}\n\nEsta ação NÃO pode ser desfeita!`)) {
             return;
         }
-
-        if (!confirm('TEM CERTEZA ABSOLUTA? O item será removido do banco local e da planilha na próxima sincronização.')) {
+        if (!confirm('TEM CERTEZA ABSOLUTA? O item será removido do banco local.')) {
             return;
         }
-
-        // Remove do banco local
         await localforage.removeItem(item.codigo);
-        
         alert('Item excluído com sucesso.');
         app.navigate('dashboard');
         app.updateDashboard();
@@ -472,9 +490,7 @@ const app = {
             alert('Nenhum item cadastrado nesta unidade.');
             return;
         }
-
         const printWindow = window.open('', '_blank');
-        
         let labelsHtml = '';
         items.forEach(item => {
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.codigo)}`;
@@ -489,7 +505,6 @@ const app = {
                 </div>
             `;
         });
-
         printWindow.document.write(`
             <html>
             <head>
@@ -508,7 +523,7 @@ const app = {
             <body>
                 <div class="no-print" style="text-align:center; margin-bottom:20px;">
                     <h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2>
-                    <button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">🖨️ Imprimir Agora</button>
+                    <button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">️ Imprimir Agora</button>
                 </div>
                 <div class="container">${labelsHtml}</div>
             </body>
@@ -540,13 +555,8 @@ const app = {
 
     clearData: async () => {
         const items = await db.getAll();
-        
         if (items.length > 0) {
-            const confirmMsg = `ATENÇÃO! Você tem ${items.length} itens cadastrados localmente.\n\n` +
-                              `Antes de limpar, deseja fazer backup na nuvem?\n\n` +
-                              `OK = Fazer backup e depois limpar\n` +
-                              `Cancelar = Abortar operação`;
-            
+            const confirmMsg = `ATENÇÃO! Você tem ${items.length} itens cadastrados localmente.\n\nAntes de limpar, deseja fazer backup na nuvem?\n\nOK = Fazer backup e depois limpar\nCancelar = Abortar operação`;
             if (confirm(confirmMsg)) {
                 try {
                     await sync.runSync();
@@ -560,22 +570,18 @@ const app = {
                 return;
             }
         }
-        
-        if (confirm('TEM CERTEZA ABSOLUTA? Isso apagará TUDO do celular.\n\n' +
-                    'Se você fez backup, pode restaurar depois em Ajustes > Restaurar da Nuvem.')) {
+        if (confirm('TEM CERTEZA ABSOLUTA? Isso apagará TUDO do celular.')) {
             await db.clear();
             localStorage.clear();
             window.location.reload();
         }
     },
 
-    // ===== GESTÃO DE USUÁRIOS (EXPANDIDA) =====
     openUserManagement: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem gerenciar usuários');
             return;
         }
-
         app.users.init();
         const users = app.users.getAll();
         const container = document.getElementById('users-list');
@@ -607,84 +613,59 @@ const app = {
             alert('Apenas administradores podem criar usuários');
             return;
         }
-        
         const name = document.getElementById('new-user-name').value.trim();
         const username = document.getElementById('new-user-username').value.trim();
         const password = document.getElementById('new-user-password').value;
         const level = document.getElementById('new-user-level').value;
-        
         if (!name || !username || !password) { alert('Preencha todos os campos'); return; }
         if (username.includes(' ')) { alert('Usuário não pode ter espaços'); return; }
-        
-        if (app.users.get(username)) {
-            alert('Este nome de usuário já existe');
-            return;
-        }
-        
+        if (app.users.get(username)) { alert('Este nome de usuário já existe'); return; }
         app.users.create({ name, username, password, level });
-        alert(`Usuário criado com sucesso!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level].name}`);
-        
+        alert(`Usuário criado!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level].name}`);
         document.getElementById('new-user-name').value = '';
         document.getElementById('new-user-username').value = '';
         document.getElementById('new-user-password').value = '';
-        
         app.openUserManagement();
     },
 
-    // NOVA FUNÇÃO: Editar usuário
     editUser: (username) => {
-        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
-            alert('Apenas administradores podem editar usuários');
-            return;
-        }
-
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
         const user = app.users.get(username);
-        if (!user) {
-            alert('Usuário não encontrado');
-            return;
-        }
+        if (!user) return;
 
-        const newLevel = prompt(`Alterar nível de acesso para ${user.name}?\n\nAtual: ${app.accessLevels[user.level].name}\n\nDigite:\n- admin para Administrador\n- editor para Editor\n- viewer para Visualizador`, user.level);
-        
+        const newLevel = prompt(`Alterar nível de acesso para ${user.name}?\n\nAtual: ${app.accessLevels[user.level].name}\n\nDigite:\n- admin\n- editor\n- viewer`, user.level);
         if (newLevel && ['admin', 'editor', 'viewer'].includes(newLevel)) {
             user.level = newLevel;
             app.users.create(user);
             alert(`Nível alterado para: ${app.accessLevels[newLevel].name}`);
-            app.openUserManagement();
         } else if (newLevel) {
             alert('Nível inválido');
         }
 
-        const changePassword = confirm('Deseja alterar a senha deste usuário?');
-        if (changePassword) {
+        if (confirm('Deseja alterar a senha deste usuário?')) {
             const newPassword = prompt('Digite a nova senha:');
             if (newPassword && newPassword.trim()) {
                 user.password = newPassword.trim();
                 app.users.create(user);
                 alert('Senha alterada com sucesso!');
-                app.openUserManagement();
             }
         }
+        app.openUserManagement();
     },
 
     deleteUser: (username) => {
-        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
-            alert('Apenas administradores podem excluir usuários');
-            return;
-        }
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
         if (confirm(`Excluir usuário ${username}?\n\nEsta ação revoga o acesso permanentemente.`)) {
             app.users.delete(username);
             app.openUserManagement();
         }
     },
 
-    // ===== GESTÃO DE INSTITUIÇÕES =====
     openInstituicaoManagement: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem gerenciar unidades');
             return;
         }
-
         app.instituicoes.init();
         const instituicoes = app.instituicoes.getAll();
         const container = document.getElementById('instituicoes-list');
@@ -707,31 +688,20 @@ const app = {
     closeInstituicaoManagement: () => { document.getElementById('instituicao-management-modal').classList.add('hidden'); },
 
     createInstituicao: () => {
-        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
-            alert('Apenas administradores podem criar unidades');
-            return;
-        }
-        
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
         const nome = document.getElementById('new-inst-nome').value.trim();
         const cidade = document.getElementById('new-inst-cidade').value.trim();
-        
         if (!nome) { alert('Informe o nome da unidade'); return; }
-        
         app.instituicoes.create({ nome, cidade });
-        alert(`Unidade criada com sucesso!\n\n${nome}${cidade ? ' - ' + cidade : ''}`);
-        
+        alert(`Unidade criada!\n\n${nome}${cidade ? ' - ' + cidade : ''}`);
         document.getElementById('new-inst-nome').value = '';
         document.getElementById('new-inst-cidade').value = '';
-        
         app.openInstituicaoManagement();
     },
 
     deleteInstituicao: (id) => {
-        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
-            alert('Apenas administradores podem excluir unidades');
-            return;
-        }
-        if (confirm('Excluir esta unidade? Os itens cadastrados nela NÃO serão apagados, mas ficarão sem vínculo.')) {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
+        if (confirm('Excluir esta unidade? Os itens NÃO serão apagados, mas ficarão sem vínculo.')) {
             app.instituicoes.delete(id);
             app.openInstituicaoManagement();
         }
@@ -762,14 +732,12 @@ const app = {
         init: () => {
             if (!localStorage.getItem('inst_default')) {
                 localStorage.setItem('inst_default', JSON.stringify({
-                    id: 'default',
-                    nome: 'Escola de Música',
-                    cidade: 'Sede'
+                    id: 'default', nome: 'Escola de Música', cidade: 'Sede'
                 }));
             }
         },
         create: (instData) => {
-            const id = utils.generateId();
+            const id = 'inst_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             const instituicao = { id, ...instData };
             localStorage.setItem(`inst_${id}`, JSON.stringify(instituicao));
         },
