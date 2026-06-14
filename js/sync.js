@@ -1,5 +1,5 @@
 const sync = {
-    GAS_URL: 'https://script.google.com/macros/s/SEU_ID_DE_IMPLANTACAO_AQUI/exec', 
+    GAS_URL: 'https://script.google.com/macros/s/AKfycbxX40Cj4xveniBJ-yPYIw8QiTxbWlKMTV1vX2hA_Wn08azTm3KmgvsDd3A0_YFDBCHjQg/exec', 
     
     runSync: async () => {
         const btn = document.querySelector('button[onclick="sync.runSync()"]');
