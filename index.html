@@ -21,13 +21,12 @@
             <div class="flex gap-2">
                 <button onclick="app.navigate('scanner')" class="p-2 bg-blue-700 rounded">📷</button>
                 <button id="btn-login-toggle" onclick="app.toggleLogin()" class="p-2 bg-blue-700 rounded"></button>
-                <button id="btn-user-management" onclick="app.openUserManagement()" class="p-2 bg-blue-700 rounded hidden">👥</button>
+                <button id="btn-user-management" onclick="app.openUserManagement()" class="p-2 bg-blue-700 rounded hidden"></button>
                 <button id="btn-instituicao-management" onclick="app.openInstituicaoManagement()" class="p-2 bg-blue-700 rounded hidden">🏫</button>
             </div>
         </header>
 
         <main class="p-4 pb-20">
-            <!-- Login Required Screen -->
             <section id="view-login-required" class="view">
                 <div class="text-center py-12">
                     <div class="text-6xl mb-4">🔒</div>
@@ -37,10 +36,8 @@
                 </div>
             </section>
 
-            <!-- Dashboard -->
             <section id="view-dashboard" class="view hidden">
                 <div id="current-instituicao-display" class="bg-blue-50 p-2 rounded mb-4 text-center text-sm font-bold text-blue-900"></div>
-                
                 <h2 class="text-xl font-bold mb-4">Dashboard</h2>
                 <div class="grid grid-cols-2 gap-4 mb-6">
                     <div class="bg-blue-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-total">0</p><p class="text-sm">Total</p></div>
@@ -48,22 +45,18 @@
                     <div class="bg-red-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-manutencao">0</p><p class="text-sm">Manutenção</p></div>
                     <div class="bg-green-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-ativos">0</p><p class="text-sm">Ativos</p></div>
                 </div>
-                
                 <div class="flex gap-2 mb-4">
                     <input type="text" id="search-input" placeholder="Buscar..." class="flex-1 p-2 border rounded" oninput="app.filterItems()">
                     <button onclick="app.exportCSV()" class="bg-green-600 text-white p-2 rounded text-sm">CSV</button>
                     <button onclick="app.exportPDF()" class="bg-red-600 text-white p-2 rounded text-sm">PDF</button>
                 </div>
-
                 <div class="grid grid-cols-2 gap-2 mb-4">
                     <button onclick="app.navigate('add')" class="bg-blue-600 text-white p-3 rounded-lg font-bold">+ Novo Item</button>
                     <button onclick="app.printLabels()" class="bg-purple-600 text-white p-3 rounded-lg font-bold">🖨️ Etiquetas</button>
                 </div>
-                
                 <div id="items-list" class="space-y-3"></div>
             </section>
 
-            <!-- Add Item -->
             <section id="view-add" class="view hidden">
                 <h2 class="text-xl font-bold mb-4">Cadastrar Item</h2>
                 <form id="form-add" onsubmit="app.saveItem(event)">
@@ -90,7 +83,6 @@
                 </form>
             </section>
 
-            <!-- Item Detail -->
             <section id="view-detail" class="view hidden">
                 <button onclick="app.navigate('dashboard')" class="mb-4 text-blue-600">← Voltar</button>
                 <div id="detail-content" class="space-y-4"></div>
@@ -105,14 +97,12 @@
                 </div>
             </section>
 
-            <!-- Scanner -->
             <section id="view-scanner" class="view hidden">
                 <button onclick="app.stopScanner(); app.navigate('dashboard')" class="mb-4 text-blue-600">← Fechar</button>
                 <div id="reader" class="w-full"></div>
                 <p class="text-center text-gray-500 mt-2">Aponte para o QR Code</p>
             </section>
 
-            <!-- Settings -->
             <section id="view-settings" class="view hidden">
                 <h2 class="text-xl font-bold mb-4">Configurações</h2>
                 <div class="space-y-4">
@@ -140,7 +130,7 @@
 
         <nav class="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 z-50">
             <button onclick="app.navigate('dashboard')" class="flex flex-col items-center text-blue-900"><span>🏠</span><span class="text-xs">Início</span></button>
-            <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span>📷</span><span class="text-xs">Escanear</span></button>
+            <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span></span><span class="text-xs">Escanear</span></button>
             <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>⚙️</span><span class="text-xs">Ajustes</span></button>
         </nav>
 
@@ -151,9 +141,9 @@
                 <label class="block text-sm font-medium mb-1">Unidade/Instituição</label>
                 <select id="login-instituicao" class="w-full p-2 border rounded mb-3"></select>
                 <label class="block text-sm font-medium mb-1">Usuário</label>
-                <input type="text" id="login-user" placeholder="Usuário" class="w-full p-2 border rounded mb-3">
+                <select id="login-user-select" class="w-full p-2 border rounded mb-3"></select>
                 <label class="block text-sm font-medium mb-1">Senha</label>
-                <input type="password" id="login-pass" placeholder="Senha" class="w-full p-2 border rounded mb-4">
+                <input type="password" id="login-pass" placeholder="Digite sua senha" class="w-full p-2 border rounded mb-4">
                 <div class="flex gap-2">
                     <button onclick="app.closeLogin()" class="flex-1 bg-gray-300 p-2 rounded">Cancelar</button>
                     <button onclick="app.doLogin()" class="flex-1 bg-blue-600 text-white p-2 rounded">Entrar</button>
@@ -212,7 +202,7 @@
                 </select>
                 <label class="block text-sm font-medium mb-1">Descrição</label>
                 <input type="text" id="edit-descricao" class="w-full p-2 border rounded mb-3">
-                <label class="block text-sm font-medium mb-1">Nova Foto (opcional)</label>
+                <label class="block text-sm font-medium mb-1">Nova Foto (opcional - substitui a anterior)</label>
                 <input type="file" id="edit-foto" accept="image/*" capture="environment" class="w-full p-2 border rounded mb-2">
                 <img id="edit-foto-preview" class="w-full h-32 object-cover rounded mb-3" style="display:none;">
                 <label class="block text-sm font-medium mb-1">Observações</label>
