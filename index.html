@@ -20,17 +20,17 @@
         <header class="bg-blue-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
             <h1 class="text-lg font-bold">🎵 Inventário</h1>
             <div class="flex gap-2">
-                <button onclick="app.navigate('scanner')" class="p-2 bg-blue-700 rounded">📷</button>
+                <button onclick="app.navigate('scanner')" class="p-2 bg-blue-700 rounded"></button>
                 <button id="btn-login-toggle" onclick="app.toggleLogin()" class="p-2 bg-blue-700 rounded"></button>
                 <button id="btn-user-management" onclick="app.openUserManagement()" class="p-2 bg-blue-700 rounded hidden">👥</button>
-                <button id="btn-instituicao-management" onclick="app.openInstituicaoManagement()" class="p-2 bg-blue-700 rounded hidden">🏫</button>
+                <button id="btn-instituicao-management" onclick="app.openInstituicaoManagement()" class="p-2 bg-blue-700 rounded hidden"></button>
             </div>
         </header>
 
         <main class="p-4 pb-20">
             <section id="view-login-required" class="view">
                 <div class="text-center py-12">
-                    <div class="text-6xl mb-4">🔒</div>
+                    <div class="text-6xl mb-4"></div>
                     <h2 class="text-2xl font-bold mb-4">Acesso Restrito</h2>
                     <p class="text-gray-600 mb-8">Faça login para acessar o sistema</p>
                     <button onclick="app.openLoginModal()" class="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold">Entrar no Sistema</button>
@@ -54,7 +54,8 @@
                     <button onclick="app.navigate('add')" class="bg-blue-600 text-white p-3 rounded-lg font-bold">+ Novo Item</button>
                     <button onclick="app.printLabels()" class="bg-purple-600 text-white p-3 rounded-lg font-bold">🖨️ Etiquetas</button>
                 </div>
-                <button id="btn-reports" onclick="app.navigate('reports')" class="hidden w-full bg-indigo-600 text-white p-3 rounded-lg font-bold mb-4"> Relatórios Gerenciais</button>
+                <button id="btn-audit" onclick="app.startAudit()" class="hidden w-full bg-orange-600 text-white p-3 rounded-lg font-bold mb-4"> Conferência de Devolução</button>
+                <button id="btn-reports" onclick="app.navigate('reports')" class="hidden w-full bg-indigo-600 text-white p-3 rounded-lg font-bold mb-4">📊 Relatórios Gerenciais</button>
                 <div id="items-list" class="space-y-3"></div>
             </section>
 
@@ -95,14 +96,61 @@
                     <button onclick="app.updateStatus('Ativo')" class="w-full bg-green-500 text-white p-2 rounded">Marcar Ativo/Devolvido</button>
                     <button onclick="app.baixarItem()" class="w-full bg-red-600 text-white p-2 rounded">Dar Baixa</button>
                     <button onclick="app.deleteItem()" class="w-full bg-gray-800 text-white p-2 rounded">Excluir Permanentemente</button>
+                </div>            </section>
+
+            <!-- NOVA VIEW: Conferência de Devolução -->
+            <section id="view-audit" class="view hidden">
+                <button onclick="app.stopAudit(); app.navigate('dashboard')" class="mb-4 text-blue-600">← Voltar</button>
+                <h2 class="text-xl font-bold mb-2">🔍 Conferência de Devolução</h2>
+                <p class="text-sm text-gray-600 mb-4">Escaneie os QR Codes dos itens para marcar como devolvidos</p>
+                
+                <!-- Painel de estatísticas -->
+                <div class="grid grid-cols-3 gap-2 mb-4">
+                    <div class="bg-yellow-100 p-3 rounded text-center">
+                        <p class="text-2xl font-bold text-yellow-700" id="audit-pendentes">0</p>
+                        <p class="text-xs">Pendentes</p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded text-center">
+                        <p class="text-2xl font-bold text-green-700" id="audit-devolvidos">0</p>
+                        <p class="text-xs">Devolvidos</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded text-center">
+                        <p class="text-2xl font-bold text-blue-700" id="audit-total">0</p>
+                        <p class="text-xs">Total</p>
+                    </div>
                 </div>
-            </section>
-            <!-- NOVA VIEW: Relatórios -->
+
+                <!-- Botão para iniciar scanner -->
+                <button id="btn-start-scan" onclick="app.startAuditScanner()" class="w-full bg-orange-600 text-white p-4 rounded-lg font-bold mb-4 text-lg">📷 Iniciar Scanner de Conferência</button>
+                
+                <!-- Área do scanner -->
+                <div id="audit-reader-container" class="hidden mb-4">
+                    <div id="audit-reader" class="w-full rounded-lg overflow-hidden"></div>
+                    <button onclick="app.stopAuditScanner()" class="w-full bg-gray-600 text-white p-2 rounded mt-2">Parar Scanner</button>
+                </div>
+
+                <!-- Lista de itens pendentes -->
+                <div class="mb-4">
+                    <h3 class="font-bold text-sm mb-2">📋 Itens Pendentes de Devolução</h3>
+                    <div id="audit-pending-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+
+                <!-- Lista de itens já devolvidos nesta sessão -->
+                <div class="mb-4">
+                    <h3 class="font-bold text-sm mb-2">✅ Devolvidos Nesta Sessão</h3>
+                    <div id="audit-returned-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+
+                <!-- Botões de ação -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="app.generateAuditReport()" class="bg-blue-600 text-white p-3 rounded-lg font-bold">📄 Gerar Relatório</button>
+                    <button onclick="app.resetAudit()" class="bg-gray-600 text-white p-3 rounded-lg font-bold">🔄 Nova Conferência</button>
+                </div>            </section>
+
             <section id="view-reports" class="view hidden">
                 <button onclick="app.navigate('dashboard')" class="mb-4 text-blue-600">← Voltar</button>
                 <h2 class="text-xl font-bold mb-2">📊 Relatórios Gerenciais</h2>
                 <p class="text-sm text-gray-600 mb-4">Gere relatórios detalhados para envio e análise</p>
-                
                 <div id="reports-list" class="space-y-3"></div>
             </section>
 
@@ -127,7 +175,7 @@
                     </div>
                     <div class="p-4 bg-yellow-50 rounded border border-yellow-200">
                         <p class="font-bold text-yellow-700">Atualização</p>
-                        <button onclick="app.forceUpdate()" class="bg-yellow-600 text-white px-4 py-2 rounded w-full mt-2"> Forçar Atualização</button>
+                        <button onclick="app.forceUpdate()" class="bg-yellow-600 text-white px-4 py-2 rounded w-full mt-2">🔄 Forçar Atualização</button>
                     </div>
                     <div class="p-4 bg-red-50 rounded border border-red-200">
                         <p class="font-bold text-red-700">Zona de Perigo</p>
@@ -139,14 +187,14 @@
 
         <nav class="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 z-50">
             <button onclick="app.navigate('dashboard')" class="flex flex-col items-center text-blue-900"><span>🏠</span><span class="text-xs">Início</span></button>
-            <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span>📷</span><span class="text-xs">Escanear</span></button>
-            <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>⚙️</span><span class="text-xs">Ajustes</span></button>
+            <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span></span><span class="text-xs">Escanear</span></button>
+            <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>️</span><span class="text-xs">Ajustes</span></button>
         </nav>
 
         <!-- Login Modal -->
         <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-            <div class="bg-white p-6 rounded-lg w-11/12 max-w-sm">                <h3 class="text-lg font-bold mb-4">Acesso ao Sistema</h3>
-                <label class="block text-sm font-medium mb-1">Unidade/Instituição</label>
+            <div class="bg-white p-6 rounded-lg w-11/12 max-w-sm">
+                <h3 class="text-lg font-bold mb-4">Acesso ao Sistema</h3>                <label class="block text-sm font-medium mb-1">Unidade/Instituição</label>
                 <select id="login-instituicao" class="w-full p-2 border rounded mb-3"></select>
                 <label class="block text-sm font-medium mb-1">Usuário</label>
                 <select id="login-user-select" class="w-full p-2 border rounded mb-3"></select>
@@ -194,8 +242,8 @@
                 <button onclick="app.closeInstituicaoManagement()" class="w-full bg-gray-300 p-2 rounded mt-4">Fechar</button>
             </div>
         </div>
-        <!-- Edit Item Modal -->
-        <div id="edit-item-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+
+        <!-- Edit Item Modal -->        <div id="edit-item-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
             <div class="bg-white p-6 rounded-lg w-11/12 max-w-md max-h-[80vh] overflow-y-auto">
                 <h3 class="text-lg font-bold mb-4">Editar Item</h3>
                 <input type="text" id="edit-codigo" class="w-full p-2 border rounded mb-3 bg-gray-100" readonly>
