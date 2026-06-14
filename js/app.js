@@ -446,13 +446,36 @@ const app = {
     exportCSV: async () => { utils.exportCSV(await db.getAll(app.currentInstituicao?.id)); },
     exportPDF: async () => { utils.exportPDF(await db.getAll(app.currentInstituicao?.id)); },
 
-    clearData: async () => {
-        if (confirm('TEM CERTEZA? Apagará TUDO do celular.')) {
-            await db.clear();
-            localStorage.clear();
-            window.location.reload();
+clearData: async () => {
+    const items = await db.getAll();
+    
+    if (items.length > 0) {
+        const confirmMsg = `ATENÇÃO! Você tem ${items.length} itens cadastrados localmente.\n\n` +
+                          `Antes de limpar, deseja fazer backup na nuvem?\n\n` +
+                          `OK = Fazer backup e depois limpar\n` +
+                          `Cancelar = Abortar operação`;
+        
+        if (confirm(confirmMsg)) {
+            try {
+                await sync.runSync();
+                alert('Backup concluído! Agora os dados serão limpos.');
+            } catch (error) {
+                if (!confirm('Erro no backup. Deseja limpar mesmo assim? (Os dados serão PERDIDOS)')) {
+                    return;
+                }
+            }
+        } else {
+            return;
         }
-    },
+    }
+    
+    if (confirm('TEM CERTEZA ABSOLUTA? Isso apagará TUDO do celular.\n\n' +
+                'Se você fez backup, pode restaurar depois em Ajustes > Restaurar da Nuvem.')) {
+        await db.clear();
+        localStorage.clear();
+        window.location.reload();
+    }
+},
 
     // ===== GESTÃO DE USUÁRIOS =====
     openUserManagement: () => {
