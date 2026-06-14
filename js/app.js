@@ -6,11 +6,23 @@ const app = {
 
     init: async () => {
         await db.init();
-        await app.users.init();
+        app.users.init();
+        
+        // Restaurar sessão automaticamente
+        const savedUser = localStorage.getItem('sessionUser');
+        if (savedUser) {
+            const user = app.users.get(savedUser);
+            if (user) {
+                app.isLoggedIn = true;
+                app.currentUser = user;
+                document.getElementById('btn-login-toggle').textContent = ` ${user.name}`;
+                app.applyPermissions(app.accessLevels[user.level]);
+            }
+        }
+
         app.navigate('dashboard');
         app.updateDashboard();
         
-        // Register Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(console.error);
         }
@@ -36,6 +48,7 @@ const app = {
         if (app.isLoggedIn) {
             app.isLoggedIn = false;
             app.currentUser = null;
+            localStorage.removeItem('sessionUser'); // Limpa a sessão salva
             document.getElementById('btn-login-toggle').textContent = '🔒';
             document.getElementById('admin-actions').classList.add('hidden');
             app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
@@ -45,21 +58,20 @@ const app = {
         }
     },
 
-    doLogin: async () => {
+    doLogin: () => {
         const u = document.getElementById('login-user').value;
         const p = document.getElementById('login-pass').value;
         
-        await app.users.init();
-        const user = await localforage.getItem(u);
+        const user = app.users.get(u);
         
         if (user && user.password === p) {
             app.isLoggedIn = true;
             app.currentUser = user;
+            localStorage.setItem('sessionUser', u); // Salva a sessão
             document.getElementById('btn-login-toggle').textContent = `🔓 ${user.name}`;
             document.getElementById('login-modal').classList.add('hidden');
             
-            const perms = app.accessLevels[user.level];
-            app.applyPermissions(perms);
+            app.applyPermissions(app.accessLevels[user.level]);
             
             if (app.currentItem) app.renderDetail(app.currentItem.codigo);
         } else {
@@ -266,16 +278,17 @@ const app = {
     },
 
     clearData: async () => {
-        if (confirm('TEM CERTEZA? Isso apagará TODOS os dados e fotos do celular. Esta ação não pode ser desfeita.')) {
+        if (confirm('TEM CERTEZA? Isso apagará TODOS os dados, fotos e o login. Esta ação não pode ser desfeita.')) {
             await db.clear();
+            localStorage.clear(); // Limpa também a sessão e usuários
             alert('Dados limpos. Recarregando...');
             window.location.reload();
         }
     },
 
-    openUserManagement: async () => {
-        await app.users.init();
-        const users = await app.users.getAll();
+    openUserManagement: () => {
+        app.users.init();
+        const users = app.users.getAll();
         const container = document.getElementById('users-list');
         container.innerHTML = '';
         
@@ -299,7 +312,7 @@ const app = {
         document.getElementById('user-management-modal').classList.add('hidden');
     },
 
-    createUser: async () => {
+    createUser: () => {
         const name = document.getElementById('new-user-name').value;
         const username = document.getElementById('new-user-username').value;
         const password = document.getElementById('new-user-password').value;
@@ -310,57 +323,56 @@ const app = {
             return;
         }
         
-        await app.users.create({ name, username, password, level });
+        app.users.create({ name, username, password, level });
         alert('Usuário criado com sucesso!');
         app.openUserManagement();
     },
 
-    deleteUser: async (username) => {
+    deleteUser: (username) => {
         if (confirm(`Excluir usuário ${username}?`)) {
-            await app.users.delete(username);
+            app.users.delete(username);
             app.openUserManagement();
         }
     },
 
     users: {
-        init: async () => {
-            await localforage.config({ name: 'InventarioMusicalDB', storeName: 'users' });
-            const admin = await localforage.getItem('admin');
-            if (!admin) {
-                await localforage.setItem('admin', {
+        init: () => {
+            if (!localStorage.getItem('user_admin')) {
+                localStorage.setItem('user_admin', JSON.stringify({
                     username: 'admin',
                     password: 'musica2026',
                     level: 'admin',
                     name: 'Administrador'
-                });
+                }));
             }
         },
         
-        create: async (userData) => {
-            await localforage.setItem(userData.username, {
-                username: userData.username,
-                password: userData.password,
-                level: userData.level,
-                name: userData.name
-            });
+        create: (userData) => {
+            localStorage.setItem(`user_${userData.username}`, JSON.stringify(userData));
         },
         
-        getAll: async () => {
-            const keys = await localforage.keys();
+        getAll: () => {
             const users = [];
-            for (const key of keys) {
-                const user = await localforage.getItem(key);
-                users.push(user);
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('user_')) {
+                    users.push(JSON.parse(localStorage.getItem(key)));
+                }
             }
             return users;
         },
+
+        get: (username) => {
+            const data = localStorage.getItem(`user_${username}`);
+            return data ? JSON.parse(data) : null;
+        },
         
-        delete: async (username) => {
+        delete: (username) => {
             if (username === 'admin') {
                 alert('Não é possível remover o usuário admin principal');
                 return;
             }
-            await localforage.removeItem(username);
+            localStorage.removeItem(`user_${username}`);
         }
     },
 
