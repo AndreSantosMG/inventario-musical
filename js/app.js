@@ -21,6 +21,10 @@ const app = {
 
         app.navigate('dashboard');
         app.updateDashboard();
+        
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(console.error);
+        }
     },
 
     forceUpdate: () => {
@@ -70,7 +74,7 @@ const app = {
             app.isLoggedIn = true;
             app.currentUser = user;
             localStorage.setItem('sessionUser', u);
-            document.getElementById('btn-login-toggle').textContent = `🔓 ${user.name}`;
+            document.getElementById('btn-login-toggle').textContent = ` ${user.name}`;
             document.getElementById('login-modal').classList.add('hidden');
             
             app.applyPermissions(app.accessLevels[user.level]);
@@ -112,6 +116,7 @@ const app = {
             categoria: document.getElementById('item-categoria').value,
             descricao: document.getElementById('item-descricao').value,
             foto: fotoBase64,
+            observacao: document.getElementById('item-obs').value.trim(), // Salva a observação
             status: 'Ativo',
             dataEntrada: new Date().toISOString().split('T')[0],
             historico: [`Criado em ${new Date().toLocaleString()}`]
@@ -140,6 +145,7 @@ const app = {
                     <div>
                         <p class="font-bold text-sm">${item.codigo}</p>
                         <p class="text-xs text-gray-600">${item.descricao}</p>
+                        ${item.observacao ? '<p class="text-xs text-yellow-600 font-bold mt-1">⚠️ Tem observação</p>' : ''}
                     </div>
                     <span class="text-xs px-2 py-1 rounded bg-gray-200">${item.status}</span>
                 </div>
@@ -156,6 +162,7 @@ const app = {
         const container = document.getElementById('detail-content');
         
         let historicoHtml = item.historico.map(h => `<li class="text-xs text-gray-600">• ${h}</li>`).join('');
+        const obsText = item.observacao ? item.observacao : 'Nenhuma observação registrada.';
 
         container.innerHTML = `
             ${item.foto ? `<img src="${item.foto}" class="w-full h-48 object-cover rounded-lg mb-4">` : ''}
@@ -164,6 +171,15 @@ const app = {
             <div class="bg-gray-100 p-3 rounded mt-2">
                 <p><strong>Status:</strong> ${item.status}</p>
                 <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>
+            </div>
+            
+            <!-- Área de Observações -->
+            <div class="bg-yellow-50 p-3 rounded mt-2 border border-yellow-200">
+                <div class="flex justify-between items-center mb-1">
+                    <p class="font-bold text-sm text-yellow-800">Observações:</p>
+                    <button id="btn-edit-obs" onclick="app.editObservation()" class="hidden text-xs bg-yellow-600 text-white px-3 py-1 rounded shadow">Editar</button>
+                </div>
+                <p id="detail-obs-text" class="text-sm text-gray-700 whitespace-pre-wrap">${obsText}</p>
             </div>
             
             <div class="mt-4 bg-white p-4 rounded-lg shadow text-center border">
@@ -187,12 +203,41 @@ const app = {
             });
         }, 100);
 
+        // Controle de permissão para editar observação
+        const btnEditObs = document.getElementById('btn-edit-obs');
+        if (app.isLoggedIn && app.currentUser.level === 'admin') {
+            btnEditObs.classList.remove('hidden');
+        } else {
+            btnEditObs.classList.add('hidden');
+        }
+
         if (app.isLoggedIn) {
             document.getElementById('admin-actions').classList.remove('hidden');
         } else {
             document.getElementById('admin-actions').classList.add('hidden');
         }
         app.navigate('detail');
+    },
+
+    // Nova função para editar observação (Apenas Admin)
+    editObservation: async () => {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
+            alert('Apenas administradores podem editar observações.');
+            return;
+        }
+        
+        const currentObs = app.currentItem.observacao || '';
+        const newObs = prompt('Editar observação (deixe vazio para apagar):', currentObs);
+        
+        if (newObs !== null) { // Se não cancelou
+            app.currentItem.observacao = newObs.trim();
+            const acao = newObs.trim() !== '' ? 'Observação atualizada' : 'Observação limpa';
+            app.currentItem.historico.push(`${acao} em ${new Date().toLocaleString()} por ${app.currentUser.name}.`);
+            
+            await db.save(app.currentItem);
+            app.renderDetail(app.currentItem.codigo);
+            app.renderList(); // Atualiza o aviso na lista
+        }
     },
 
     updateStatus: async (newStatus) => {
@@ -293,7 +338,7 @@ const app = {
                 <div class="no-print" style="text-align:center; margin-bottom:20px;">
                     <h2>Pré-visualização de Etiquetas (${items.length} itens)</h2>
                     <p>Clique no botão abaixo ou pressione Ctrl+P para imprimir.</p>
-                    <button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">🖨️ Imprimir Agora</button>
+                    <button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">️ Imprimir Agora</button>
                 </div>
                 <div class="container">
                     ${labelsHtml}
