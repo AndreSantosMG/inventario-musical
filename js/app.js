@@ -47,12 +47,35 @@ const app = {
         const display = document.getElementById('current-instituicao-display');
         if (display) display.classList.add('hidden');
     },
+    // CORREÇÃO: Não apaga usuários e instituições
     forceUpdate: () => {
-        if (confirm('Isso vai limpar o cache e recarregar. OK?')) {
+        if (confirm('Isso vai limpar o cache e recarregar.\n\nSeus usuários e unidades serão PRESERVADOS.\nApenas a sessão atual será encerrada.\n\nOK?')) {
+            // Salva usuários e instituições antes de limpar
+            const usersData = {};
+            const instData = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('user_')) {
+                    usersData[key] = localStorage.getItem(key);
+                } else if (key && key.startsWith('inst_')) {
+                    instData[key] = localStorage.getItem(key);
+                }
+            }
+            
+            // Limpa tudo
             localStorage.clear();
             if ('caches' in window) {
                 caches.keys().then(names => names.forEach(n => caches.delete(n)));
             }
+            
+            // Restaura usuários e instituições
+            Object.keys(usersData).forEach(key => {
+                localStorage.setItem(key, usersData[key]);
+            });
+            Object.keys(instData).forEach(key => {
+                localStorage.setItem(key, instData[key]);
+            });
+            
             window.location.reload(true);
         }
     },
@@ -73,8 +96,7 @@ const app = {
         }
         if (viewId === 'add') {
             document.getElementById('item-codigo').value = app.generateCode();
-        }
-        if (viewId === 'scanner') app.startScanner();
+        }        if (viewId === 'scanner') app.startScanner();
         if (viewId === 'reports') app.renderReports();
     },
 
@@ -96,7 +118,8 @@ const app = {
     },
 
     toggleLogin: () => {
-        if (app.isLoggedIn) {            if (confirm('Deseja sair do sistema?')) {
+        if (app.isLoggedIn) {
+            if (confirm('Deseja sair do sistema?')) {
                 app.isLoggedIn = false;
                 app.currentUser = null;
                 app.currentInstituicao = null;
@@ -122,8 +145,7 @@ const app = {
             const selectInst = document.getElementById('login-instituicao');
             if (selectInst) {
                 selectInst.innerHTML = '<option value="">-- Selecione sua unidade --</option>';
-                instituicoes.forEach(inst => {
-                    const option = document.createElement('option');
+                instituicoes.forEach(inst => {                    const option = document.createElement('option');
                     option.value = inst.id;
                     option.textContent = `${inst.nome} - ${inst.cidade || ''}`;
                     selectInst.appendChild(option);
@@ -145,7 +167,8 @@ const app = {
                     });
                 } else {
                     usuarios.forEach(user => {
-                        const option = document.createElement('option');                        option.value = user.username;
+                        const option = document.createElement('option');
+                        option.value = user.username;
                         option.textContent = `${user.name} (${app.accessLevels[user.level].name})`;
                         selectUser.appendChild(option);
                     });
@@ -171,8 +194,7 @@ const app = {
         if (!instId) { alert('Selecione sua unidade/instituição'); return; }
         if (!username) { alert('Selecione seu usuário'); return; }
         
-        const user = app.users.get(username);
-        if (!user || user.password !== p) { alert('Senha incorreta!'); return; }
+        const user = app.users.get(username);        if (!user || user.password !== p) { alert('Senha incorreta!'); return; }
 
         const instituicao = app.instituicoes.get(instId);
         if (!instituicao) { alert('Unidade não encontrada'); return; }
@@ -184,7 +206,7 @@ const app = {
         localStorage.setItem('sessionData', JSON.stringify({ username: username, instituicao: instituicao }));
         
         const btn = document.getElementById('btn-login-toggle');
-        if (btn) btn.textContent = `🔓 ${user.name}`;
+        if (btn) btn.textContent = ` ${user.name}`;
         
         document.getElementById('login-modal').classList.add('hidden');
         
@@ -194,7 +216,8 @@ const app = {
         app.updateInstituicaoDisplay();
         
         const hora = new Date().getHours();
-        let saudacao = 'Olá';        if (hora < 12) saudacao = 'Bom dia';
+        let saudacao = 'Olá';
+        if (hora < 12) saudacao = 'Bom dia';
         else if (hora < 18) saudacao = 'Boa tarde';
         else saudacao = 'Boa noite';
         
@@ -220,8 +243,6 @@ const app = {
 
         const printBtn = document.querySelector('button[onclick="app.printLabels()"]');
         if (printBtn) printBtn.style.display = perms.canCreate ? 'block' : 'none';
-
-        // Mostra/oculta botão de relatórios apenas para admin
         const reportsBtn = document.getElementById('btn-reports');
         if (reportsBtn) {
             reportsBtn.style.display = perms.canManageUsers ? 'block' : 'none';
@@ -243,7 +264,8 @@ const app = {
             if (!confirm('Você não adicionou uma foto. Deseja continuar mesmo assim?')) return;
         }
 
-        const item = {            codigo: document.getElementById('item-codigo').value,
+        const item = {
+            codigo: document.getElementById('item-codigo').value,
             categoria: document.getElementById('item-categoria').value,
             descricao: document.getElementById('item-descricao').value,
             foto: fotoBase64,
@@ -271,7 +293,6 @@ const app = {
         
         const filter = document.getElementById('search-input').value.toLowerCase();
         const filtered = items.filter(i => i.codigo.toLowerCase().includes(filter) || i.descricao.toLowerCase().includes(filter));
-
         if (filtered.length === 0) {
             container.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhum item cadastrado nesta unidade</p>';
             return;
@@ -284,7 +305,7 @@ const app = {
             div.innerHTML = `
                 <div class="flex justify-between items-center cursor-pointer" onclick="app.renderDetail('${item.codigo}')">
                     <div>
-                        <p class="font-bold text-sm">${item.codigo} ${temObs ? '📝' : ''}</p>
+                        <p class="font-bold text-sm">${item.codigo} ${temObs ? '' : ''}</p>
                         <p class="text-xs text-gray-600">${item.descricao}</p>
                     </div>
                     <span class="text-xs px-2 py-1 rounded bg-gray-200">${item.status}</span>
@@ -293,6 +314,7 @@ const app = {
             container.appendChild(div);
         });
     },
+
     filterItems: () => { app.renderList(); },
 
     renderDetail: async (codigo) => {
@@ -319,8 +341,7 @@ const app = {
             <h2 class="text-2xl font-bold">${item.codigo}</h2>
             <p class="text-gray-600">${item.categoria} | ${item.descricao}</p>
             <p class="text-xs text-blue-600 font-bold">📍 ${item.instituicaoNome || 'Unidade não identificada'} ${item.instituicaoCidade ? '- ' + item.instituicaoCidade : ''}</p>
-            <div class="bg-gray-100 p-3 rounded mt-2">
-                <p><strong>Status:</strong> ${item.status}</p>
+            <div class="bg-gray-100 p-3 rounded mt-2">                <p><strong>Status:</strong> ${item.status}</p>
                 <p><strong>Responsável:</strong> ${item.responsavel || 'N/A'}</p>
             </div>
             <div class="bg-yellow-50 p-3 rounded mt-2 border border-yellow-200">
@@ -341,6 +362,7 @@ const app = {
                 <ul class="space-y-1">${historicoHtml}</ul>
             </div>
         `;
+
         setTimeout(() => {
             const qrContainer = document.getElementById("detail-qrcode");
             if (qrContainer) {
@@ -368,8 +390,7 @@ const app = {
         if (!app.isLoggedIn || !app.currentUser || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem editar observações.'); return;
         }
-        const currentObs = app.currentItem.observacao || '';
-        const newObs = prompt('Editar observação (deixe vazio para apagar):', currentObs);
+        const currentObs = app.currentItem.observacao || '';        const newObs = prompt('Editar observação (deixe vazio para apagar):', currentObs);
         if (newObs !== null) {
             app.currentItem.observacao = newObs.trim();
             const acao = newObs.trim() !== '' ? 'Observação atualizada' : 'Observação limpa';
@@ -390,7 +411,8 @@ const app = {
         } else if (newStatus === 'Manutenção') {
             obs = prompt('Motivo / Nº OS:') || '-';
         }
-        app.currentItem.status = newStatus;        app.currentItem.responsavel = responsavel;
+        app.currentItem.status = newStatus;
+        app.currentItem.responsavel = responsavel;
         app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${responsavel}. Obs: ${obs}`);
         await db.save(app.currentItem);
         alert(`Status: ${newStatus}`);
@@ -417,8 +439,7 @@ const app = {
         document.getElementById('edit-categoria').value = item.categoria;
         document.getElementById('edit-descricao').value = item.descricao;
         document.getElementById('edit-obs').value = item.observacao || '';
-        const preview = document.getElementById('edit-foto-preview');
-        if (item.foto) { preview.src = item.foto; preview.style.display = 'block'; }
+        const preview = document.getElementById('edit-foto-preview');        if (item.foto) { preview.src = item.foto; preview.style.display = 'block'; }
         else { preview.style.display = 'none'; }
         document.getElementById('edit-item-modal').classList.remove('hidden');
     },
@@ -439,7 +460,8 @@ const app = {
         await db.save(app.currentItem);
         alert('Item atualizado!');
         document.getElementById('edit-item-modal').classList.add('hidden');
-        app.renderDetail(app.currentItem.codigo);        app.renderList();
+        app.renderDetail(app.currentItem.codigo);
+        app.renderList();
     },
 
     cancelEditItem: () => { document.getElementById('edit-item-modal').classList.add('hidden'); },
@@ -466,8 +488,7 @@ const app = {
         if (dashTotal) dashTotal.textContent = items.length;
         if (dashEmp) dashEmp.textContent = items.filter(i => i.status === 'Emprestado').length;
         if (dashMan) dashMan.textContent = items.filter(i => i.status === 'Manutenção').length;
-        if (dashAti) dashAti.textContent = items.filter(i => i.status === 'Ativo').length;
-    },
+        if (dashAti) dashAti.textContent = items.filter(i => i.status === 'Ativo').length;    },
 
     printLabels: async () => {
         const items = await db.getAll(app.currentInstituicao?.id);
@@ -488,7 +509,8 @@ const app = {
             async (decodedText) => {
                 app.stopScanner();
                 if (!app.isLoggedIn) { alert(`Código: ${decodedText}\n(Faça login para ver detalhes)`); app.navigate('dashboard'); }
-                else {                    const item = await db.get(decodedText);
+                else {
+                    const item = await db.get(decodedText);
                     if (item) app.renderDetail(decodedText);
                     else { alert('Item não encontrado.'); app.navigate('dashboard'); }
                 }
@@ -510,11 +532,21 @@ const app = {
             } else { return; }
         }
         if (confirm('TEM CERTEZA ABSOLUTA? Isso apagará TUDO do celular.')) {
-            await db.clear(); localStorage.clear(); window.location.reload();
+            await db.clear();
+            // Preserva usuários e instituições mesmo no clearData
+            const usersData = {};
+            const instData = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);                if (key && key.startsWith('user_')) usersData[key] = localStorage.getItem(key);
+                else if (key && key.startsWith('inst_')) instData[key] = localStorage.getItem(key);
+            }
+            localStorage.clear();
+            Object.keys(usersData).forEach(key => localStorage.setItem(key, usersData[key]));
+            Object.keys(instData).forEach(key => localStorage.setItem(key, instData[key]));
+            window.location.reload();
         }
     },
 
-    // ===== SISTEMA DE RELATÓRIOS =====
     renderReports: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
             alert('Apenas administradores podem acessar relatórios');
@@ -523,54 +555,13 @@ const app = {
         }
 
         const reports = [
-            {
-                id: 'completo',
-                icon: '📋',
-                title: 'Inventário Completo',
-                description: 'Lista todos os itens cadastrados com status, categoria e responsável',
-                color: 'blue'
-            },
-            {
-                id: 'emprestados',
-                icon: '',
-                title: 'Itens Emprestados',
-                description: 'Relatório de itens emprestados com responsável e data prevista',
-                color: 'yellow'
-            },
-            {                id: 'manutencao',
-                icon: '🔧',
-                title: 'Itens em Manutenção',
-                description: 'Itens com status de manutenção e número de OS',
-                color: 'orange'
-            },
-            {
-                id: 'baixados',
-                icon: '🗑️',
-                title: 'Itens Baixados',
-                description: 'Itens retirados do inventário com motivo da baixa',
-                color: 'red'
-            },
-            {
-                id: 'observacoes',
-                icon: '📝',
-                title: 'Itens com Observações',
-                description: 'Itens que possuem observações pendentes de atendimento',
-                color: 'amber'
-            },
-            {
-                id: 'categorias',
-                icon: '📊',
-                title: 'Resumo por Categoria',
-                description: 'Quantitativo de itens agrupados por categoria',
-                color: 'purple'
-            },
-            {
-                id: 'historico',
-                icon: '📜',
-                title: 'Histórico de Movimentações',
-                description: 'Log completo de todas as alterações realizadas nos itens',
-                color: 'indigo'
-            }
+            { id: 'completo', icon: '', title: 'Inventário Completo', description: 'Lista todos os itens cadastrados', color: 'blue' },
+            { id: 'emprestados', icon: '📤', title: 'Itens Emprestados', description: 'Itens emprestados com responsável', color: 'yellow' },
+            { id: 'manutencao', icon: '🔧', title: 'Itens em Manutenção', description: 'Itens com status de manutenção', color: 'orange' },
+            { id: 'baixados', icon: '🗑️', title: 'Itens Baixados', description: 'Itens retirados do inventário', color: 'red' },
+            { id: 'observacoes', icon: '📝', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
+            { id: 'categorias', icon: '📊', title: 'Resumo por Categoria', description: 'Quantitativo por categoria', color: 'purple' },
+            { id: 'historico', icon: '📜', title: 'Histórico de Movimentações', description: 'Log de todas as alterações', color: 'indigo' }
         ];
 
         const container = document.getElementById('reports-list');
@@ -586,16 +577,16 @@ const app = {
                     <div class="flex-1">
                         <h3 class="font-bold text-gray-800">${report.title}</h3>
                         <p class="text-xs text-gray-600 mt-1">${report.description}</p>
-                    </div>                </div>
+                    </div>
+                </div>
                 <div class="flex gap-2">
-                    <button onclick="app.generateReport('${report.id}', 'pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold"> PDF</button>
-                    <button onclick="app.generateReport('${report.id}', 'xlsx')" class="flex-1 bg-green-600 text-white text-xs py-2 rounded font-bold"> XLSX</button>
+                    <button onclick="app.generateReport('${report.id}', 'pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold">📄 PDF</button>
+                    <button onclick="app.generateReport('${report.id}', 'xlsx')" class="flex-1 bg-green-600 text-white text-xs py-2 rounded font-bold">📊 XLSX</button>
                     <button onclick="app.generateReport('${report.id}', 'csv')" class="flex-1 bg-blue-600 text-white text-xs py-2 rounded font-bold"> CSV</button>
                 </div>
             `;
             container.appendChild(card);
-        });
-    },
+        });    },
 
     generateReport: async (reportId, format) => {
         const items = await db.getAll(app.currentInstituicao?.id);
@@ -609,66 +600,28 @@ const app = {
         switch (reportId) {
             case 'completo':
                 titulo = 'Inventário Completo';
-                data = items.map(i => ({
-                    'Código': i.codigo,
-                    'Categoria': i.categoria,
-                    'Descrição': i.descricao,
-                    'Status': i.status,
-                    'Responsável': i.responsavel || '-',
-                    'Data Entrada': i.dataEntrada || '-',
-                    'Observações': i.observacao || '-'
-                }));
+                data = items.map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Status': i.status, 'Responsável': i.responsavel || '-', 'Data Entrada': i.dataEntrada || '-', 'Observações': i.observacao || '-' }));
                 break;
-
             case 'emprestados':
                 titulo = 'Itens Emprestados';
-                data = items.filter(i => i.status === 'Emprestado').map(i => ({
-                    'Código': i.codigo,
-                    'Categoria': i.categoria,
-                    'Descrição': i.descricao,
-                    'Responsável': i.responsavel || '-',
-                    'Data Entrada': i.dataEntrada || '-',
-                    'Última Atualização': i.historico ? i.historico[i.historico.length - 1] : '-'
-                }));
+                data = items.filter(i => i.status === 'Emprestado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-', 'Data Entrada': i.dataEntrada || '-', 'Última Atualização': i.historico ? i.historico[i.historico.length - 1] : '-' }));
                 if (data.length === 0) { alert('Nenhum item emprestado no momento.'); return; }
                 break;
-
             case 'manutencao':
                 titulo = 'Itens em Manutenção';
-                data = items.filter(i => i.status === 'Manutenção').map(i => ({                    'Código': i.codigo,
-                    'Categoria': i.categoria,
-                    'Descrição': i.descricao,
-                    'Responsável': i.responsavel || '-',
-                    'Data Entrada': i.dataEntrada || '-',
-                    'Última Atualização': i.historico ? i.historico[i.historico.length - 1] : '-'
-                }));
+                data = items.filter(i => i.status === 'Manutenção').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-', 'Data Entrada': i.dataEntrada || '-', 'Última Atualização': i.historico ? i.historico[i.historico.length - 1] : '-' }));
                 if (data.length === 0) { alert('Nenhum item em manutenção no momento.'); return; }
                 break;
-
             case 'baixados':
                 titulo = 'Itens Baixados';
-                data = items.filter(i => i.status === 'Baixado').map(i => ({
-                    'Código': i.codigo,
-                    'Categoria': i.categoria,
-                    'Descrição': i.descricao,
-                    'Data Entrada': i.dataEntrada || '-',
-                    'Última Atualização': i.historico ? i.historico[i.historico.length - 1] : '-'
-                }));
+                data = items.filter(i => i.status === 'Baixado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Data Entrada': i.dataEntrada || '-', 'Última Atualização': i.historico ? i.historico[i.historico.length - 1] : '-' }));
                 if (data.length === 0) { alert('Nenhum item baixado no momento.'); return; }
                 break;
-
             case 'observacoes':
                 titulo = 'Itens com Observações Pendentes';
-                data = items.filter(i => i.observacao && i.observacao.trim() !== '').map(i => ({
-                    'Código': i.codigo,
-                    'Categoria': i.categoria,
-                    'Descrição': i.descricao,
-                    'Status': i.status,
-                    'Observação': i.observacao
-                }));
+                data = items.filter(i => i.observacao && i.observacao.trim() !== '').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Status': i.status, 'Observação': i.observacao }));
                 if (data.length === 0) { alert('Nenhum item com observações no momento.'); return; }
                 break;
-
             case 'categorias':
                 titulo = 'Resumo por Categoria';
                 const categorias = {};
@@ -681,26 +634,13 @@ const app = {
                     else if (i.status === 'Manutenção') categorias[cat].manutencao++;
                     else if (i.status === 'Baixado') categorias[cat].baixados++;
                 });
-                data = Object.keys(categorias).map(cat => ({
-                    'Categoria': cat,
-                    'Total': categorias[cat].total,
-                    'Ativos': categorias[cat].ativos,                    'Emprestados': categorias[cat].emprestados,
-                    'Em Manutenção': categorias[cat].manutencao,
-                    'Baixados': categorias[cat].baixados
-                }));
-                break;
-
-            case 'historico':
+                data = Object.keys(categorias).map(cat => ({ 'Categoria': cat, 'Total': categorias[cat].total, 'Ativos': categorias[cat].ativos, 'Emprestados': categorias[cat].emprestados, 'Em Manutenção': categorias[cat].manutencao, 'Baixados': categorias[cat].baixados }));
+                break;            case 'historico':
                 titulo = 'Histórico de Movimentações';
                 items.forEach(i => {
                     if (i.historico && Array.isArray(i.historico)) {
                         i.historico.forEach(h => {
-                            data.push({
-                                'Código': i.codigo,
-                                'Descrição': i.descricao,
-                                'Categoria': i.categoria,
-                                'Evento': h
-                            });
+                            data.push({ 'Código': i.codigo, 'Descrição': i.descricao, 'Categoria': i.categoria, 'Evento': h });
                         });
                     }
                 });
@@ -708,20 +648,13 @@ const app = {
                 break;
         }
 
-        if (data.length === 0) {
-            alert('Nenhum dado para gerar este relatório.');
-            return;
-        }
+        if (data.length === 0) { alert('Nenhum dado para gerar este relatório.'); return; }
 
         const nomeArquivo = `${titulo.replace(/\s+/g, '_')}_${app.currentInstituicao?.nome || 'inventário'}_${new Date().toISOString().split('T')[0]}`;
 
-        if (format === 'csv') {
-            utils.exportCSVReport(data, nomeArquivo);
-        } else if (format === 'xlsx') {
-            utils.exportXLSX(data, nomeArquivo, titulo, instNome, dataGeracao, usuario);
-        } else if (format === 'pdf') {
-            utils.exportPDFReport(data, nomeArquivo, titulo, instNome, dataGeracao, usuario);
-        }
+        if (format === 'csv') utils.exportCSVReport(data, nomeArquivo);
+        else if (format === 'xlsx') utils.exportXLSX(data, nomeArquivo, titulo, instNome, dataGeracao, usuario);
+        else if (format === 'pdf') utils.exportPDFReport(data, nomeArquivo, titulo, instNome, dataGeracao, usuario);
 
         alert(`✅ Relatório "${titulo}" gerado com sucesso!\n\n${data.length} registros exportados em ${format.toUpperCase()}`);
     },
@@ -733,7 +666,8 @@ const app = {
         const container = document.getElementById('users-list');
         if (!container) return;
         container.innerHTML = '';
-        users.forEach(user => {            const div = document.createElement('div');
+        users.forEach(user => {
+            const div = document.createElement('div');
             div.className = 'flex justify-between items-center p-2 bg-gray-100 rounded';
             div.innerHTML = `
                 <div class="flex-1">
@@ -741,10 +675,7 @@ const app = {
                     <p class="text-xs text-gray-600">@${user.username} - ${app.accessLevels[user.level].name}</p>
                 </div>
                 <div class="flex gap-2">
-                    ${user.username !== 'admin' ? `
-                        <button onclick="app.editUser('${user.username}')" class="text-blue-600 text-xs">Editar</button>
-                        <button onclick="app.deleteUser('${user.username}')" class="text-red-600 text-xs">Excluir</button>
-                    ` : '<span class="text-xs text-gray-500">Principal</span>'}
+                    ${user.username !== 'admin' ? `<button onclick="app.editUser('${user.username}')" class="text-blue-600 text-xs">Editar</button><button onclick="app.deleteUser('${user.username}')" class="text-red-600 text-xs">Excluir</button>` : '<span class="text-xs text-gray-500">Principal</span>'}
                 </div>
             `;
             container.appendChild(div);
@@ -753,7 +684,6 @@ const app = {
     },
 
     closeUserManagement: () => { document.getElementById('user-management-modal').classList.add('hidden'); },
-
     createUser: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores podem criar usuários'); return; }
         const name = document.getElementById('new-user-name').value.trim();
@@ -782,7 +712,8 @@ const app = {
             alert(`Nível alterado para: ${app.accessLevels[newLevel].name}`);
         } else if (newLevel) { alert('Nível inválido'); }
         if (confirm('Deseja alterar a senha deste usuário?')) {
-            const newPassword = prompt('Digite a nova senha:');            if (newPassword && newPassword.trim()) {
+            const newPassword = prompt('Digite a nova senha:');
+            if (newPassword && newPassword.trim()) {
                 user.password = newPassword.trim();
                 app.users.create(user);
                 alert('Senha alterada com sucesso!');
@@ -802,8 +733,7 @@ const app = {
     openInstituicaoManagement: () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores podem gerenciar unidades'); return; }
         app.instituicoes.init();
-        const instituicoes = app.instituicoes.getAll();
-        const container = document.getElementById('instituicoes-list');
+        const instituicoes = app.instituicoes.getAll();        const container = document.getElementById('instituicoes-list');
         if (!container) return;
         container.innerHTML = '';
         instituicoes.forEach(inst => {
@@ -831,7 +761,8 @@ const app = {
         app.instituicoes.create({ nome, cidade });
         alert(`Unidade criada!\n\n${nome}${cidade ? ' - ' + cidade : ''}`);
         document.getElementById('new-inst-nome').value = '';
-        document.getElementById('new-inst-cidade').value = '';        app.openInstituicaoManagement();
+        document.getElementById('new-inst-cidade').value = '';
+        app.openInstituicaoManagement();
     },
 
     deleteInstituicao: (id) => {
@@ -851,8 +782,7 @@ const app = {
         create: (userData) => { localStorage.setItem(`user_${userData.username}`, JSON.stringify(userData)); },
         getAll: () => {
             const users = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
+            for (let i = 0; i < localStorage.length; i++) {                const key = localStorage.key(i);
                 if (key && key.startsWith('user_')) { try { users.push(JSON.parse(localStorage.getItem(key))); } catch (e) {} }
             }
             return users;
@@ -880,7 +810,8 @@ const app = {
             return instituicoes;
         },
         get: (id) => { const data = localStorage.getItem(`inst_${id}`); return data ? JSON.parse(data) : null; },
-        delete: (id) => { if (id === 'default') { alert('Não pode excluir a unidade padrão'); return; } localStorage.removeItem(`inst_${id}`); }    },
+        delete: (id) => { if (id === 'default') { alert('Não pode excluir a unidade padrão'); return; } localStorage.removeItem(`inst_${id}`); }
+    },
 
     accessLevels: {
         admin: { name: 'Administrador', canCreate: true, canEdit: true, canDelete: true, canBorrow: true, canMaintenance: true, canSync: true, canManageUsers: true },
