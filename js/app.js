@@ -352,7 +352,7 @@ const app = {
             </div>
             <div class="bg-yellow-50 p-3 rounded mt-2 border border-yellow-200">
                 <div class="flex justify-between items-center mb-1">
-                    <p class="font-bold text-sm text-yellow-800"> Observações:</p>
+                    <p class="font-bold text-sm text-yellow-800">📝 Observações:</p>
                     <button id="btn-edit-obs" onclick="app.editObservation()" class="hidden text-xs bg-yellow-600 text-white px-3 py-1 rounded shadow">Editar</button>
                 </div>
                 <p id="detail-obs-text" class="text-sm text-gray-700 whitespace-pre-wrap">${obsText}</p>
@@ -557,31 +557,24 @@ const app = {
         }
     },
 
-    // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO (COM DIAGNÓSTICO) =====
+    // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO (LIMPO) =====
     
     startAudit: async () => {
-        alert('🔍 Passo 1: Botão clicado com sucesso!');
-        
         if (!app.isLoggedIn) {
-            alert('❌ Erro: Usuário não está logado');
+            alert('Faça login para iniciar conferência');
             app.navigate('dashboard');
             return;
         }
-        alert('✅ Passo 2: Usuário logado: ' + app.currentUser.name);
 
         if (!app.currentInstituicao) {
-            alert('❌ Erro: Nenhuma instituição selecionada');
+            alert('Selecione uma instituição primeiro');
             app.navigate('dashboard');
             return;
         }
-        alert('✅ Passo 3: Instituição: ' + app.currentInstituicao.nome);
 
         try {
             const allItems = await db.getAll(app.currentInstituicao.id);
-            alert('✅ Passo 4: Total de itens carregados: ' + allItems.length);
-            
             const emprestados = allItems.filter(i => i.status === 'Emprestado');
-            alert('✅ Passo 5: Itens emprestados encontrados: ' + emprestados.length);
 
             if (emprestados.length === 0) {
                 const continuar = confirm('Não há itens emprestados no momento.\n\nDeseja iniciar uma conferência mesmo assim?');
@@ -602,11 +595,9 @@ const app = {
                 startTime: new Date().toISOString()
             };
 
-            alert('✅ Passo 6: Sessão criada. Navegando para tela de auditoria...');
             app.navigate('audit');
-            alert('✅ Passo 7: Conferência iniciada!');
         } catch (error) {
-            alert(' ERRO: ' + error.message);
+            alert('Erro ao iniciar conferência: ' + error.message);
         }
     },
 
@@ -699,7 +690,7 @@ const app = {
             if (pendingIndex === -1) {
                 const alreadyReturned = app.auditSession.returned.find(r => r.codigo === codigo);
                 if (alreadyReturned) {
-                    alert(`️ Item ${codigo} já foi devolvido nesta sessão.`);
+                    alert(`⚠️ Item ${codigo} já foi devolvido nesta sessão.`);
                 } else {
                     alert(`⚠️ Item ${codigo} não está na lista de pendentes.`);
                 }
@@ -737,7 +728,7 @@ const app = {
 
             if (app.auditSession.pending.length === 0) {
                 setTimeout(() => {
-                    alert('🎉 Todos os itens foram devolvidos!');
+                    alert(' Todos os itens foram devolvidos!');
                 }, 500);
             }
         } catch (error) {
@@ -819,11 +810,11 @@ const app = {
         }
 
         const reports = [
-            { id: 'completo', icon: '', title: 'Inventário Completo', description: 'Lista todos os itens', color: 'blue' },
+            { id: 'completo', icon: '📋', title: 'Inventário Completo', description: 'Lista todos os itens', color: 'blue' },
             { id: 'emprestados', icon: '📤', title: 'Itens Emprestados', description: 'Itens emprestados', color: 'yellow' },
             { id: 'manutencao', icon: '🔧', title: 'Itens em Manutenção', description: 'Status manutenção', color: 'orange' },
             { id: 'baixados', icon: '🗑️', title: 'Itens Baixados', description: 'Itens retirados', color: 'red' },
-            { id: 'observacoes', icon: '📝', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
+            { id: 'observacoes', icon: '', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
             { id: 'categorias', icon: '📊', title: 'Resumo por Categoria', description: 'Quantitativo por categoria', color: 'purple' },
             { id: 'historico', icon: '📜', title: 'Histórico', description: 'Log de alterações', color: 'indigo' }
         ];
