@@ -4,23 +4,36 @@ const utils = {
         const random = Math.floor(10000 + Math.random() * 90000);
         return `FDSF-${year}-${random}`;
     },
-    compressImage: (file) => {
-        return new Promise((resolve) => {
+    compressImage: (file, maxWidth = 400, maxHeight = 400, quality = 0.7) => {
+        return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
-                    const maxWidth = 400;
-                    const scale = maxWidth / img.width;
-                    canvas.width = maxWidth;
-                    canvas.height = img.height * scale;
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    }
+                    if (height > maxHeight) {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
                 };
+                img.onerror = reject;
                 img.src = e.target.result;
             };
+            reader.onerror = reject;
             reader.readAsDataURL(file);
         });
     },
@@ -66,7 +79,7 @@ const utils = {
         link.click();
         document.body.removeChild(link);
     },
-    exportXLSX: (data, nomeArquivo, titulo, instituicao, dataGeracao, usuario) => {
+    exportXLSX: (data, nomeArquivo, titulo, instituicao, dataGeracao, usuario, logo = null) => {
         if (typeof XLSX === 'undefined') {
             alert('Biblioteca XLSX não carregada. Verifique sua conexão com a internet.');
             return;
@@ -91,17 +104,28 @@ const utils = {
         XLSX.utils.book_append_sheet(wb, ws, titulo.substring(0, 30));
         XLSX.writeFile(wb, `${nomeArquivo}.xlsx`);
     },
-    exportPDFReport: (data, nomeArquivo, titulo, instituicao, dataGeracao, usuario) => {
+    exportPDFReport: (data, nomeArquivo, titulo, instituicao, dataGeracao, usuario, logo = null) => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape', 'mm', 'a4');
         
+        let startY = 15;
+        
+        if (logo) {
+            try {
+                doc.addImage(logo, 'JPEG', 14, 10, 20, 20);
+                startY = 35;
+            } catch (e) {
+                console.log('Erro ao adicionar logo:', e);
+            }
+        }
+        
         doc.setFontSize(16);
-        doc.text(titulo, 14, 15);
+        doc.text(titulo, 14, startY);
         doc.setFontSize(10);
-        doc.text(`Instituição: ${instituicao}`, 14, 22);
-        doc.text(`Data: ${dataGeracao}`, 14, 27);
-        doc.text(`Gerado por: ${usuario}`, 14, 32);
-        doc.text(`Total de registros: ${data.length}`, 14, 37);
+        doc.text(`Instituição: ${instituicao}`, 14, startY + 7);
+        doc.text(`Data: ${dataGeracao}`, 14, startY + 12);
+        doc.text(`Gerado por: ${usuario}`, 14, startY + 17);
+        doc.text(`Total de registros: ${data.length}`, 14, startY + 22);
         
         const headers = [Object.keys(data[0])];
         const body = data.map(item => Object.values(item).map(v => String(v || '-')));
@@ -109,7 +133,7 @@ const utils = {
         doc.autoTable({
             head: headers,
             body: body,
-            startY: 42,
+            startY: startY + 27,
             styles: { fontSize: 8, cellPadding: 2 },
             headStyles: { fillColor: [30, 58, 138], textColor: 255 },
             alternateRowStyles: { fillColor: [240, 245, 255] }
