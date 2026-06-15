@@ -20,12 +20,11 @@
         <header class="bg-blue-900 text-white p-4 flex justify-between items-center sticky top-0 z-50">
             <div class="flex items-center gap-2">
                 <img id="header-logo" src="" alt="" class="hidden w-8 h-8 rounded">
-                <h1 class="text-lg font-bold">🎵 Inventário</h1>
+                <h1 class="text-lg font-bold"> Inventário</h1>
             </div>
             <div class="flex gap-2">
                 <button onclick="app.navigate('scanner')" class="p-2 bg-blue-700 rounded">📷</button>
                 <button id="btn-login-toggle" onclick="app.toggleLogin()" class="p-2 bg-blue-700 rounded"></button>
-                <button id="btn-user-management" onclick="app.openUserManagementDirect()" class="p-2 bg-blue-700 rounded hidden">👥</button>
                 <button id="btn-instituicao-management" onclick="app.openInstituicaoManagement()" class="p-2 bg-blue-700 rounded hidden">🏫</button>
             </div>
         </header>
@@ -57,10 +56,14 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2 mb-4">
                     <button onclick="app.navigate('add')" class="bg-blue-600 text-white p-3 rounded-lg font-bold">+ Novo Item</button>
-                    <button onclick="app.printLabels()" class="bg-purple-600 text-white p-3 rounded-lg font-bold">️ Etiquetas</button>
+                    <button onclick="app.printLabels()" class="bg-purple-600 text-white p-3 rounded-lg font-bold">🖨️ Etiquetas</button>
                 </div>
+                
+                <!-- BOTÃO DE USUÁRIOS NO DASHBOARD (só aparece para admin) -->
+                <button id="btn-users-dashboard" onclick="app.openUserManagementDirect()" class="hidden w-full bg-teal-600 text-white p-3 rounded-lg font-bold mb-4">👥 Gerenciar Usuários</button>
+                
                 <button id="btn-audit" onclick="app.startAudit()" class="hidden w-full bg-orange-600 text-white p-3 rounded-lg font-bold mb-4">🔍 Conferência de Devolução</button>
-                <button id="btn-reports" onclick="app.navigate('reports')" class="hidden w-full bg-indigo-600 text-white p-3 rounded-lg font-bold mb-4">📊 Relatórios Gerenciais</button>
+                <button id="btn-reports" onclick="app.navigate('reports')" class="hidden w-full bg-indigo-600 text-white p-3 rounded-lg font-bold mb-4"> Relatórios Gerenciais</button>
                 <div id="items-list" class="space-y-3"></div>
             </section>
 
@@ -108,7 +111,7 @@
 
             <section id="view-audit" class="view hidden">
                 <button onclick="app.stopAudit(); app.navigate('dashboard')" class="mb-4 text-blue-600">← Voltar</button>
-                <h2 class="text-xl font-bold mb-2"> Conferência de Devolução</h2>
+                <h2 class="text-xl font-bold mb-2">🔍 Conferência de Devolução</h2>
                 <p class="text-sm text-gray-600 mb-4">Escaneie os QR Codes para marcar como devolvidos</p>
                 <div class="grid grid-cols-3 gap-2 mb-4">
                     <div class="bg-yellow-100 p-3 rounded text-center"><p class="text-2xl font-bold text-yellow-700" id="audit-pendentes">0</p><p class="text-xs">Pendentes</p></div>
@@ -130,7 +133,7 @@
 
             <section id="view-reports" class="view hidden">
                 <button onclick="app.navigate('dashboard')" class="mb-4 text-blue-600">← Voltar</button>
-                <h2 class="text-xl font-bold mb-2"> Relatórios Gerenciais</h2>
+                <h2 class="text-xl font-bold mb-2">📊 Relatórios Gerenciais</h2>
                 <div id="reports-list" class="space-y-3"></div>
             </section>
 
@@ -144,14 +147,14 @@
                 <div class="space-y-4">
                     <div class="p-4 bg-gray-100 rounded"><p class="font-bold">Sincronização</p><p class="text-sm text-gray-600 mb-2" id="sync-status">Nunca sincronizado</p><button onclick="sync.runSync()" class="bg-blue-600 text-white px-4 py-2 rounded w-full">Sincronizar com Google</button></div>
                     <div class="p-4 bg-green-50 rounded border border-green-200"><p class="font-bold text-green-700">Recuperação</p><button onclick="sync.restoreFromCloud()" class="bg-green-600 text-white px-4 py-2 rounded w-full mt-2">🔄 Restaurar da Nuvem</button></div>
-                    <div class="p-4 bg-yellow-50 rounded border border-yellow-200"><p class="font-bold text-yellow-700">Atualização</p><button onclick="app.forceUpdate()" class="bg-yellow-600 text-white px-4 py-2 rounded w-full mt-2">🔄 Forçar Atualização</button></div>
+                    <div class="p-4 bg-yellow-50 rounded border border-yellow-200"><p class="font-bold text-yellow-700">Atualização</p><button onclick="app.forceUpdate()" class="bg-yellow-600 text-white px-4 py-2 rounded w-full mt-2"> Forçar Atualização</button></div>
                     <div class="p-4 bg-red-50 rounded border border-red-200"><p class="font-bold text-red-700">Zona de Perigo</p><button onclick="app.clearData()" class="bg-red-600 text-white px-4 py-2 rounded w-full mt-2">Limpar Tudo</button></div>
                 </div>
             </section>
         </main>
 
         <nav class="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 z-50">
-            <button onclick="app.navigate('dashboard')" class="flex flex-col items-center text-blue-900"><span>🏠</span><span class="text-xs">Início</span></button>
+            <button onclick="app.navigate('dashboard')" class="flex flex-col items-center text-blue-900"><span></span><span class="text-xs">Início</span></button>
             <button onclick="app.navigate('scanner')" class="flex flex-col items-center text-blue-900"><span>📷</span><span class="text-xs">Escanear</span></button>
             <button onclick="app.navigate('settings')" class="flex flex-col items-center text-blue-900"><span>⚙️</span><span class="text-xs">Ajustes</span></button>
         </nav>
