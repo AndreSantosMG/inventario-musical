@@ -75,14 +75,17 @@ const app = {
     },
 
     // NOVA FUNÇÃO: Mostra botões de admin no dashboard
-    showAdminButtons: () => {
+        showAdminButtons: () => {
         const userLevel = app.currentUser?.nivel || app.currentUser?.level;
         const isAdmin = userLevel === 'admin';
         
         const btnUsers = document.getElementById('btn-users-dashboard');
         if (btnUsers) {
-            if (isAdmin) { btnUsers.classList.remove('hidden'); btnUsers.style.display = 'block'; }
-            else { btnUsers.classList.add('hidden'); btnUsers.style.display = 'none'; }
+            if (isAdmin) {
+                btnUsers.style.display = 'block';
+            } else {
+                btnUsers.style.display = 'none';
+            }
         }
         
         const btnReports = document.getElementById('btn-reports');
@@ -403,21 +406,26 @@ const app = {
 
     // ===== FUNÇÕES DE USUÁRIOS (SIMPLIFICADAS) =====
     
-    openUserManagementDirect: () => {
+        openUserManagementDirect: () => {
+        alert('🔍 Botão clicado!\n\nisLoggedIn: ' + app.isLoggedIn + '\nUser: ' + JSON.stringify(app.currentUser));
+        
         if (!app.isLoggedIn) { alert('❌ Faça login primeiro'); return; }
         
         const userLevel = app.currentUser?.nivel || app.currentUser?.level;
+        alert('🔍 Nível: ' + userLevel);
+        
         if (userLevel !== 'admin') { 
             alert('❌ Apenas administradores.\n\nSeu nível: ' + (userLevel || 'não definido')); 
             return; 
         }
         
         const c = document.getElementById('users-list');
-        if (!c) { alert('❌ Erro: container não encontrado'); return; }
+        if (!c) { alert('❌ Container não encontrado'); return; }
         
         c.innerHTML = '';
         
         const usersToShow = (app.localUsers || []).filter(u => !(u.username === 'admin' && u.master));
+        alert('🔍 Usuários: ' + usersToShow.length);
         
         if (usersToShow.length === 0) {
             c.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum usuário cadastrado ainda.<br>Crie o primeiro abaixo.</p>';
@@ -433,8 +441,9 @@ const app = {
         const modal = document.getElementById('user-management-modal');
         if (modal) {
             modal.classList.remove('hidden');
+            alert('✅ Modal aberto!');
         } else {
-            alert('❌ Erro: modal não encontrado no HTML');
+            alert('❌ Modal não encontrado');
         }
     },
 
