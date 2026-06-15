@@ -270,6 +270,7 @@ const app = {
 
         const item = {
             codigo: document.getElementById('item-codigo').value,
+            patrimonio: document.getElementById('item-patrimonio').value.trim(),
             categoria: document.getElementById('item-categoria').value,
             descricao: document.getElementById('item-descricao').value,
             foto: fotoBase64,
@@ -296,7 +297,11 @@ const app = {
         container.innerHTML = '';
         
         const filter = document.getElementById('search-input').value.toLowerCase();
-        const filtered = items.filter(i => i.codigo.toLowerCase().includes(filter) || i.descricao.toLowerCase().includes(filter));
+        const filtered = items.filter(i => 
+            i.codigo.toLowerCase().includes(filter) || 
+            i.descricao.toLowerCase().includes(filter) ||
+            (i.patrimonio && i.patrimonio.toLowerCase().includes(filter))
+        );
 
         if (filtered.length === 0) {
             container.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhum item cadastrado nesta unidade</p>';
@@ -305,6 +310,7 @@ const app = {
 
         filtered.forEach(item => {
             const temObs = item.observacao && item.observacao.trim() !== '';
+            const patrimonioBadge = item.patrimonio ? `<p class="text-xs text-blue-600 font-mono">Pat: ${item.patrimonio}</p>` : '';
             const div = document.createElement('div');
             div.className = 'bg-white p-3 rounded shadow border-l-4 ' + (item.status === 'Ativo' ? 'border-green-500' : 'border-red-500');
             div.innerHTML = `
@@ -312,6 +318,7 @@ const app = {
                     <div>
                         <p class="font-bold text-sm">${item.codigo} ${temObs ? '📝' : ''}</p>
                         <p class="text-xs text-gray-600">${item.descricao}</p>
+                        ${patrimonioBadge}
                     </div>
                     <span class="text-xs px-2 py-1 rounded bg-gray-200">${item.status}</span>
                 </div>
@@ -332,6 +339,7 @@ const app = {
         
         let historicoHtml = item.historico.map(h => `<li class="text-xs text-gray-600">• ${h}</li>`).join('');
         const obsText = (item.observacao && item.observacao.trim() !== '') ? item.observacao : 'Nenhuma observação registrada.';
+        const patrimonioDisplay = item.patrimonio ? `<p class="text-sm font-mono bg-blue-50 px-2 py-1 rounded inline-block mt-1">🏷️ Nº Patrimônio: <strong>${item.patrimonio}</strong></p>` : '';
 
         let fotoUrl = item.foto || '';
         if (fotoUrl.includes('lh3.googleusercontent.com/d/')) {
@@ -344,6 +352,7 @@ const app = {
         container.innerHTML = `
             ${fotoHtml}
             <h2 class="text-2xl font-bold">${item.codigo}</h2>
+            ${patrimonioDisplay}
             <p class="text-gray-600">${item.categoria} | ${item.descricao}</p>
             <p class="text-xs text-blue-600 font-bold">📍 ${item.instituicaoNome || 'Unidade não identificada'} ${item.instituicaoCidade ? '- ' + item.instituicaoCidade : ''}</p>
             <div class="bg-gray-100 p-3 rounded mt-2">
@@ -443,6 +452,7 @@ const app = {
         if (!app.isLoggedIn || !app.currentUser) { alert('Faça login para editar'); return; }
         const item = app.currentItem;
         document.getElementById('edit-codigo').value = item.codigo;
+        document.getElementById('edit-patrimonio').value = item.patrimonio || '';
         document.getElementById('edit-categoria').value = item.categoria;
         document.getElementById('edit-descricao').value = item.descricao;
         document.getElementById('edit-obs').value = item.observacao || '';
@@ -460,6 +470,11 @@ const app = {
             fotoBase64 = await utils.compressImage(fileInput.files[0]);
             app.currentItem.historico.push(`Foto atualizada em ${new Date().toLocaleString()} por ${app.currentUser.name}`);
         }
+        const novoPatrimonio = document.getElementById('edit-patrimonio').value.trim();
+        if (novoPatrimonio !== (app.currentItem.patrimonio || '')) {
+            app.currentItem.historico.push(`Nº Patrimônio alterado para "${novoPatrimonio || 'vazio'}" em ${new Date().toLocaleString()} por ${app.currentUser.name}`);
+        }
+        app.currentItem.patrimonio = novoPatrimonio;
         app.currentItem.categoria = document.getElementById('edit-categoria').value;
         app.currentItem.descricao = document.getElementById('edit-descricao').value;
         app.currentItem.observacao = document.getElementById('edit-obs').value.trim();
@@ -506,9 +521,10 @@ const app = {
         let labelsHtml = '';
         items.forEach(item => {
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.codigo)}`;
-            labelsHtml += `<div class="label"><img src="${qrUrl}" alt="QR Code" class="qr-img"><div class="label-text"><div class="label-code">${item.codigo}</div><div class="label-desc">${item.descricao}</div><div class="label-inst">${item.instituicaoNome || ''}</div></div></div>`;
+            const patrimonioLine = item.patrimonio ? `<div class="label-pat">Pat: ${item.patrimonio}</div>` : '';
+            labelsHtml += `<div class="label"><img src="${qrUrl}" alt="QR Code" class="qr-img"><div class="label-text"><div class="label-code">${item.codigo}</div><div class="label-desc">${item.descricao}</div>${patrimonioLine}<div class="label-inst">${item.instituicaoNome || ''}</div></div></div>`;
         });
-        printWindow.document.write(`<html><head><title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }.container { display: flex; flex-wrap: wrap; gap: 15px; }.label { border: 1px dashed #ccc; padding: 10px; width: 180px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }.qr-img { width: 120px; height: 120px; margin-bottom: 8px; }.label-code { font-weight: bold; font-size: 12px; margin-bottom: 4px; }.label-desc { font-size: 10px; color: #555; word-wrap: break-word; }.label-inst { font-size: 9px; color: #888; margin-top: 4px; font-style: italic; }@media print { body { padding: 0; } .label { border: 1px solid #000; } .no-print { display: none; } }</style></head><body><div class="no-print" style="text-align:center; margin-bottom:20px;"><h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2><button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">🖨️ Imprimir Agora</button></div><div class="container">${labelsHtml}</div></body></html>`);
+        printWindow.document.write(`<html><head><title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }.container { display: flex; flex-wrap: wrap; gap: 15px; }.label { border: 1px dashed #ccc; padding: 10px; width: 180px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }.qr-img { width: 120px; height: 120px; margin-bottom: 8px; }.label-code { font-weight: bold; font-size: 12px; margin-bottom: 4px; }.label-desc { font-size: 10px; color: #555; word-wrap: break-word; }.label-pat { font-size: 9px; color: #1e40af; font-weight: bold; margin-top: 2px; }.label-inst { font-size: 9px; color: #888; margin-top: 4px; font-style: italic; }@media print { body { padding: 0; } .label { border: 1px solid #000; } .no-print { display: none; } }</style></head><body><div class="no-print" style="text-align:center; margin-bottom:20px;"><h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2><button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">🖨️ Imprimir Agora</button></div><div class="container">${labelsHtml}</div></body></html>`);
         printWindow.document.close();
     },
 
@@ -557,7 +573,7 @@ const app = {
         }
     },
 
-    // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO (LIMPO) =====
+    // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO =====
     
     startAudit: async () => {
         if (!app.isLoggedIn) {
@@ -587,6 +603,7 @@ const app = {
             app.auditSession = {
                 pending: emprestados.map(i => ({
                     codigo: i.codigo,
+                    patrimonio: i.patrimonio,
                     descricao: i.descricao,
                     responsavel: i.responsavel,
                     categoria: i.categoria
@@ -618,7 +635,7 @@ const app = {
                 } else {
                     pendingContainer.innerHTML = app.auditSession.pending.map(item => `
                         <div class="bg-yellow-50 p-2 rounded border-l-4 border-yellow-500">
-                            <p class="font-bold text-sm">${item.codigo}</p>
+                            <p class="font-bold text-sm">${item.codigo} ${item.patrimonio ? '<span class="text-xs text-blue-600">(Pat: ' + item.patrimonio + ')</span>' : ''}</p>
                             <p class="text-xs text-gray-600">${item.descricao}</p>
                             <p class="text-xs text-gray-500">Responsável: ${item.responsavel || 'N/A'}</p>
                         </div>
@@ -633,7 +650,7 @@ const app = {
                 } else {
                     returnedContainer.innerHTML = app.auditSession.returned.map(item => `
                         <div class="bg-green-50 p-2 rounded border-l-4 border-green-500">
-                            <p class="font-bold text-sm">${item.codigo}</p>
+                            <p class="font-bold text-sm">${item.codigo} ${item.patrimonio ? '<span class="text-xs text-blue-600">(Pat: ' + item.patrimonio + ')</span>' : ''}</p>
                             <p class="text-xs text-gray-600">${item.descricao}</p>
                             <p class="text-xs text-green-600">Devolvido em: ${item.returnedAt}</p>
                         </div>
@@ -698,7 +715,7 @@ const app = {
             }
 
             const itemInfo = app.auditSession.pending[pendingIndex];
-            if (!confirm(`✅ Confirmar devolução?\n\n${itemInfo.codigo}\n${itemInfo.descricao}\nResponsável: ${itemInfo.responsavel || 'N/A'}`)) {
+            if (!confirm(`✅ Confirmar devolução?\n\n${itemInfo.codigo}\n${itemInfo.descricao}${itemInfo.patrimonio ? '\nPatrimônio: ' + itemInfo.patrimonio : ''}\nResponsável: ${itemInfo.responsavel || 'N/A'}`)) {
                 return;
             }
 
@@ -713,6 +730,7 @@ const app = {
             app.auditSession.pending.splice(pendingIndex, 1);
             app.auditSession.returned.push({
                 codigo: itemInfo.codigo,
+                patrimonio: itemInfo.patrimonio,
                 descricao: itemInfo.descricao,
                 responsavel: itemInfo.responsavel,
                 categoria: itemInfo.categoria,
@@ -728,7 +746,7 @@ const app = {
 
             if (app.auditSession.pending.length === 0) {
                 setTimeout(() => {
-                    alert(' Todos os itens foram devolvidos!');
+                    alert('🎉 Todos os itens foram devolvidos!');
                 }, 500);
             }
         } catch (error) {
@@ -755,6 +773,7 @@ const app = {
             app.auditSession.returned.forEach(item => {
                 data.push({
                     'Código': item.codigo,
+                    'Nº Patrimônio': item.patrimonio || '-',
                     'Descrição': item.descricao,
                     'Categoria': item.categoria,
                     'Responsável Original': item.responsavel || '-',
@@ -767,6 +786,7 @@ const app = {
             app.auditSession.pending.forEach(item => {
                 data.push({
                     'Código': item.codigo,
+                    'Nº Patrimônio': item.patrimonio || '-',
                     'Descrição': item.descricao,
                     'Categoria': item.categoria,
                     'Responsável Original': item.responsavel || '-',
@@ -814,7 +834,7 @@ const app = {
             { id: 'emprestados', icon: '📤', title: 'Itens Emprestados', description: 'Itens emprestados', color: 'yellow' },
             { id: 'manutencao', icon: '🔧', title: 'Itens em Manutenção', description: 'Status manutenção', color: 'orange' },
             { id: 'baixados', icon: '🗑️', title: 'Itens Baixados', description: 'Itens retirados', color: 'red' },
-            { id: 'observacoes', icon: '', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
+            { id: 'observacoes', icon: '📝', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
             { id: 'categorias', icon: '📊', title: 'Resumo por Categoria', description: 'Quantitativo por categoria', color: 'purple' },
             { id: 'historico', icon: '📜', title: 'Histórico', description: 'Log de alterações', color: 'indigo' }
         ];
@@ -835,9 +855,9 @@ const app = {
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="app.generateReport('${report.id}', 'pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold">📄 PDF</button>
+                    <button onclick="app.generateReport('${report.id}', 'pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold"> PDF</button>
                     <button onclick="app.generateReport('${report.id}', 'xlsx')" class="flex-1 bg-green-600 text-white text-xs py-2 rounded font-bold">📊 XLSX</button>
-                    <button onclick="app.generateReport('${report.id}', 'csv')" class="flex-1 bg-blue-600 text-white text-xs py-2 rounded font-bold"> CSV</button>
+                    <button onclick="app.generateReport('${report.id}', 'csv')" class="flex-1 bg-blue-600 text-white text-xs py-2 rounded font-bold">📝 CSV</button>
                 </div>
             `;
             container.appendChild(card);
@@ -856,26 +876,58 @@ const app = {
         switch (reportId) {
             case 'completo':
                 titulo = 'Inventário Completo';
-                data = items.map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Status': i.status, 'Responsável': i.responsavel || '-', 'Data Entrada': i.dataEntrada || '-', 'Observações': i.observacao || '-' }));
+                data = items.map(i => ({ 
+                    'Código': i.codigo, 
+                    'Nº Patrimônio': i.patrimonio || '-',
+                    'Categoria': i.categoria, 
+                    'Descrição': i.descricao, 
+                    'Status': i.status, 
+                    'Responsável': i.responsavel || '-', 
+                    'Data Entrada': i.dataEntrada || '-', 
+                    'Observações': i.observacao || '-' 
+                }));
                 break;
             case 'emprestados':
                 titulo = 'Itens Emprestados';
-                data = items.filter(i => i.status === 'Emprestado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-', 'Data Entrada': i.dataEntrada || '-' }));
+                data = items.filter(i => i.status === 'Emprestado').map(i => ({ 
+                    'Código': i.codigo, 
+                    'Nº Patrimônio': i.patrimonio || '-',
+                    'Categoria': i.categoria, 
+                    'Descrição': i.descricao, 
+                    'Responsável': i.responsavel || '-', 
+                    'Data Entrada': i.dataEntrada || '-' 
+                }));
                 if (data.length === 0) { alert('Nenhum item emprestado.'); return; }
                 break;
             case 'manutencao':
                 titulo = 'Itens em Manutenção';
-                data = items.filter(i => i.status === 'Manutenção').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-' }));
+                data = items.filter(i => i.status === 'Manutenção').map(i => ({ 
+                    'Código': i.codigo, 
+                    'Nº Patrimônio': i.patrimonio || '-',
+                    'Categoria': i.categoria, 
+                    'Descrição': i.descricao, 
+                    'Responsável': i.responsavel || '-' 
+                }));
                 if (data.length === 0) { alert('Nenhum item em manutenção.'); return; }
                 break;
             case 'baixados':
                 titulo = 'Itens Baixados';
-                data = items.filter(i => i.status === 'Baixado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao }));
+                data = items.filter(i => i.status === 'Baixado').map(i => ({ 
+                    'Código': i.codigo, 
+                    'Nº Patrimônio': i.patrimonio || '-',
+                    'Categoria': i.categoria, 
+                    'Descrição': i.descricao 
+                }));
                 if (data.length === 0) { alert('Nenhum item baixado.'); return; }
                 break;
             case 'observacoes':
                 titulo = 'Itens com Observações';
-                data = items.filter(i => i.observacao && i.observacao.trim() !== '').map(i => ({ 'Código': i.codigo, 'Descrição': i.descricao, 'Observação': i.observacao }));
+                data = items.filter(i => i.observacao && i.observacao.trim() !== '').map(i => ({ 
+                    'Código': i.codigo, 
+                    'Nº Patrimônio': i.patrimonio || '-',
+                    'Descrição': i.descricao, 
+                    'Observação': i.observacao 
+                }));
                 if (data.length === 0) { alert('Nenhum item com observações.'); return; }
                 break;
             case 'categorias':
@@ -890,13 +942,25 @@ const app = {
                     else if (i.status === 'Manutenção') categorias[cat].manutencao++;
                     else if (i.status === 'Baixado') categorias[cat].baixados++;
                 });
-                data = Object.keys(categorias).map(cat => ({ 'Categoria': cat, 'Total': categorias[cat].total, 'Ativos': categorias[cat].ativos, 'Emprestados': categorias[cat].emprestados, 'Em Manutenção': categorias[cat].manutencao, 'Baixados': categorias[cat].baixados }));
+                data = Object.keys(categorias).map(cat => ({ 
+                    'Categoria': cat, 
+                    'Total': categorias[cat].total, 
+                    'Ativos': categorias[cat].ativos, 
+                    'Emprestados': categorias[cat].emprestados, 
+                    'Em Manutenção': categorias[cat].manutencao, 
+                    'Baixados': categorias[cat].baixados 
+                }));
                 break;
             case 'historico':
                 titulo = 'Histórico de Movimentações';
                 items.forEach(i => {
                     if (i.historico && Array.isArray(i.historico)) {
-                        i.historico.forEach(h => data.push({ 'Código': i.codigo, 'Descrição': i.descricao, 'Evento': h }));
+                        i.historico.forEach(h => data.push({ 
+                            'Código': i.codigo, 
+                            'Nº Patrimônio': i.patrimonio || '-',
+                            'Descrição': i.descricao, 
+                            'Evento': h 
+                        }));
                     }
                 });
                 if (data.length === 0) { alert('Nenhum histórico.'); return; }
