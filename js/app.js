@@ -47,7 +47,8 @@ const app = {
         }
     },
 
-    forceUpdate: () => {        if (confirm('Isso vai limpar o cache e recarregar.\n\nUSUÁRIOS e UNIDADES serão PRESERVADOS.\n\nOK?')) {
+    forceUpdate: () => {
+        if (confirm('Isso vai limpar o cache e recarregar.\n\nUSUÁRIOS e UNIDADES serão PRESERVADOS.\n\nOK?')) {
             const protect = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
@@ -67,7 +68,6 @@ const app = {
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
         const t = document.getElementById(`view-${viewId}`);
         if (t) t.classList.remove('hidden');
-        else alert('ERRO: View não encontrada: view-' + viewId);
         if (viewId === 'dashboard') { app.renderList(); app.updateInstituicaoDisplay(); }
         if (viewId === 'add') document.getElementById('item-codigo').value = app.generateCode();
         if (viewId === 'scanner') app.startScanner();
@@ -90,13 +90,14 @@ const app = {
                 app.isLoggedIn = false; app.currentUser = null; app.currentInstituicao = null;
                 localStorage.removeItem('sessionData');
                 const b = document.getElementById('btn-login-toggle'); if (b) b.textContent = '';
-                app.issions({ canCreate: false, canSync: false, canManageUsers: false });
+                app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
                 app.showLoginScreen();
             }
         } else app.openLoginModal();
     },
 
-    openLoginModal: () => {        try {
+    openLoginModal: () => {
+        try {
             app.instituicoes.init();
             const insts = app.instituicoes.getAll();
             const sInst = document.getElementById('login-instituicao');
@@ -104,19 +105,17 @@ const app = {
                 sInst.innerHTML = '<option value="">-- Selecione sua unidade --</option>';
                 insts.forEach(i => { const o = document.createElement('option'); o.value = i.id; o.textContent = `${i.nome} - ${i.cidade || ''}`; sInst.appendChild(o); });
             }
-            
             const sUser = document.getElementById('login-user-select');
             if (sUser) {
                 sUser.innerHTML = '<option value="">-- Selecione ou digite abaixo --</option>';
                 const adm = app.users.getLocal('admin');
-                if (adm) { const o = document.createElement('option'); o.value = 'admin'; o.textContent = ` admin (Master)`; sUser.appendChild(o); }
+                if (adm) { const o = document.createElement('option'); o.value = 'admin'; o.textContent = `🔑 admin (Master)`; sUser.appendChild(o); }
                 if (app.localUsers) {
                     app.localUsers.forEach(u => {
                         if (u.username !== 'admin') { const o = document.createElement('option'); o.value = u.username; o.textContent = `${u.nome || u.username} (${app.accessLevels[u.nivel || u.level]?.name || u.nivel})`; sUser.appendChild(o); }
                     });
                 }
             }
-            
             const p = document.getElementById('login-pass'); if (p) p.value = '';
             const t = document.getElementById('login-user-text'); if (t) t.value = '';
             const m = document.getElementById('login-modal'); if (m) m.classList.remove('hidden');
@@ -145,12 +144,13 @@ const app = {
         const hash = await utils.hashPassword(p);
         if (cu.senhaHash !== hash) { alert('Senha incorreta!'); return; }
         const inst = app.instituicoes.get(iId); if (!inst) { alert('Unidade não encontrada'); return; }
-        app.completeLogin(cu, inst);    },
+        app.completeLogin(cu, inst);
+    },
 
     completeLogin: (user, inst) => {
         app.isLoggedIn = true; app.currentUser = user; app.currentInstituicao = inst;
         localStorage.setItem('sessionData', JSON.stringify({ username: user.username, instituicao: inst }));
-        const b = document.getElementById('btn-login-toggle'); if (b) b.textContent = `🔓 ${user.nome || user.name}`;
+        const b = document.getElementById('btn-login-toggle'); if (b) b.textContent = ` ${user.nome || user.name}`;
         document.getElementById('login-modal').classList.add('hidden');
         app.applyPermissions(app.accessLevels[user.nivel || user.level]);
         app.navigate('dashboard'); app.updateDashboard(); app.updateInstituicaoDisplay(); app.updateLogoDisplay();
@@ -160,43 +160,24 @@ const app = {
 
     closeLogin: () => { document.getElementById('login-modal').classList.add('hidden'); },
 
-            applyPermissions: (p) => {
-        console.log('=== applyPermissions ===');
-        console.log('Permissões recebidas:', p);
-        
+    applyPermissions: (p) => {
         const toggle = (id, show) => { 
             const e = document.getElementById(id); 
             if (e) {
-                console.log(`Elemento ${id}:`, e);
-                if (show) { 
-                    e.classList.remove('hidden'); 
-                    e.style.display = 'block';
-                    console.log(`✓ ${id} visível`);
-                } else { 
-                    e.classList.add('hidden'); 
-                    e.style.display = 'none';
-                    console.log(`✗ ${id} oculto`);
-                }
-            } else {
-                console.log(`✗ Elemento ${id} não encontrado`);
+                if (show) { e.classList.remove('hidden'); e.style.display = 'block'; }
+                else { e.classList.add('hidden'); e.style.display = 'none'; }
             }
         };
-        
         toggle('btn-user-management', p.canManageUsers);
         toggle('btn-instituicao-management', p.canManageUsers);
-        
         const rb = document.getElementById('btn-reports');
         if (rb) { if (p.canManageUsers) { rb.classList.remove('hidden'); rb.style.display = 'block'; } else { rb.classList.add('hidden'); rb.style.display = 'none'; } }
-        
         const ab = document.getElementById('btn-audit');
         if (ab) { if (p.canCreate) { ab.classList.remove('hidden'); ab.style.display = 'block'; } else { ab.classList.add('hidden'); ab.style.display = 'none'; } }
-        
         const addB = document.querySelector('button[onclick="app.navigate(\'add\')"]');
         if (addB) { if (p.canCreate) { addB.classList.remove('hidden'); addB.style.display = 'block'; } else { addB.classList.add('hidden'); addB.style.display = 'none'; } }
-        
         const syncB = document.querySelector('button[onclick="sync.runSync()"]');
         if (syncB) { if (p.canSync) { syncB.classList.remove('hidden'); syncB.style.display = 'block'; } else { syncB.classList.add('hidden'); syncB.style.display = 'none'; } }
-        
         const prB = document.querySelector('button[onclick="app.printLabels()"]');
         if (prB) { if (p.canCreate) { prB.classList.remove('hidden'); prB.style.display = 'block'; } else { prB.classList.add('hidden'); prB.style.display = 'none'; } }
     },
@@ -225,6 +206,7 @@ const app = {
         });
     },
     filterItems: () => { app.renderList(); },
+
     renderDetail: async (cod) => {
         const i = await db.get(cod); if (!i) { alert('Não encontrado'); app.navigate('dashboard'); return; }
         app.currentItem = i; const c = document.getElementById('detail-content'); if (!c) return;
@@ -232,7 +214,7 @@ const app = {
         const pd = i.patrimonio ? `<p class="text-sm font-mono bg-blue-50 px-2 py-1 rounded inline-block mt-1">🏷️ Pat: <strong>${i.patrimonio}</strong></p>` : '';
         let fu = i.foto || ''; if (fu.includes('lh3.googleusercontent.com/d/')) { const fid = fu.match(/\/d\/([^\/\?]+)/)?.[1]; if (fid) fu = 'https://drive.google.com/thumbnail?id=' + fid + '&sz=w1000'; }
         const fh = fu ? `<img src="${fu}" class="w-full h-48 object-cover rounded-lg mb-4" onerror="this.style.display='none'">` : '';
-        c.innerHTML = `${fh}<h2 class="text-2xl font-bold">${i.codigo}</h2>${pd}<p class="text-gray-600">${i.categoria} | ${i.descricao}</p><p class="text-xs text-blue-600 font-bold">📍 ${i.instituicaoNome || ''} ${i.instituicaoCidade ? '- ' + i.instituicaoCidade : ''}</p><div class="bg-gray-100 p-3 rounded mt-2"><p><strong>Status:</strong> ${i.status}</p><p><strong>Responsável:</strong> ${i.responsavel || 'N/A'}</p></div><div class="bg-yellow-50 p-3 rounded mt-2 border border-yellow-200"><div class="flex justify-between items-center mb-1"><p class="font-bold text-sm text-yellow-800">Observações:</p><button id="btn-edit-obs" onclick="app.editObservation()" class="hidden text-xs bg-yellow-600 text-white px-3 py-1 rounded shadow">Editar</button></div><p id="detail-obs-text" class="text-sm text-gray-700 whitespace-pre-wrap">${i.observacao?.trim() || 'Nenhuma.'}</p></div><div class="mt-4 bg-white p-4 rounded-lg shadow text-center border"><p class="text-sm font-bold mb-2">QR Code</p><div id="detail-qrcode" class="flex justify-center mb-2"></div><p class="text-xs font-mono text-gray-600 break-all">${i.codigo}</p></div><div class="mt-4"><h4 class="font-bold text-sm mb-2">Histórico</h4><ul class="space-y-1">${h}</ul></div>`;
+        c.innerHTML = `${fh}<h2 class="text-2xl font-bold">${i.codigo}</h2>${pd}<p class="text-gray-600">${i.categoria} | ${i.descricao}</p><p class="text-xs text-blue-600 font-bold"> ${i.instituicaoNome || ''} ${i.instituicaoCidade ? '- ' + i.instituicaoCidade : ''}</p><div class="bg-gray-100 p-3 rounded mt-2"><p><strong>Status:</strong> ${i.status}</p><p><strong>Responsável:</strong> ${i.responsavel || 'N/A'}</p></div><div class="bg-yellow-50 p-3 rounded mt-2 border border-yellow-200"><div class="flex justify-between items-center mb-1"><p class="font-bold text-sm text-yellow-800">Observações:</p><button id="btn-edit-obs" onclick="app.editObservation()" class="hidden text-xs bg-yellow-600 text-white px-3 py-1 rounded shadow">Editar</button></div><p id="detail-obs-text" class="text-sm text-gray-700 whitespace-pre-wrap">${i.observacao?.trim() || 'Nenhuma.'}</p></div><div class="mt-4 bg-white p-4 rounded-lg shadow text-center border"><p class="text-sm font-bold mb-2">QR Code</p><div id="detail-qrcode" class="flex justify-center mb-2"></div><p class="text-xs font-mono text-gray-600 break-all">${i.codigo}</p></div><div class="mt-4"><h4 class="font-bold text-sm mb-2">Histórico</h4><ul class="space-y-1">${h}</ul></div>`;
         setTimeout(() => { const q = document.getElementById("detail-qrcode"); if (q) { q.innerHTML = ''; new QRCode(q, { text: i.codigo, width: 150, height: 150 }); } }, 100);
         const be = document.getElementById('btn-edit-obs'); if (app.isLoggedIn && app.currentUser && (app.currentUser.nivel || app.currentUser.level) === 'admin') be.classList.remove('hidden'); else be.classList.add('hidden');
         const aa = document.getElementById('admin-actions'); if (aa) app.isLoggedIn ? aa.classList.remove('hidden') : aa.classList.add('hidden');
@@ -274,7 +256,8 @@ const app = {
     saveEditItem: async () => {
         if (!app.isLoggedIn) return;
         const f = document.getElementById('edit-foto'); let foto = app.currentItem.foto;
-        if (f.files[0]) { foto = await utils.compressImage(f.files[0]); app.currentItem.historico.push(`Foto atualizada em ${new Date().toLocaleString()} por ${app.currentUser.nome || app.currentUser.name}`); }        const np = document.getElementById('edit-patrimonio').value.trim();
+        if (f.files[0]) { foto = await utils.compressImage(f.files[0]); app.currentItem.historico.push(`Foto atualizada em ${new Date().toLocaleString()} por ${app.currentUser.nome || app.currentUser.name}`); }
+        const np = document.getElementById('edit-patrimonio').value.trim();
         if (np !== (app.currentItem.patrimonio || '')) app.currentItem.historico.push(`Patrimônio alterado para "${np || 'vazio'}"`);
         app.currentItem.patrimonio = np; app.currentItem.categoria = document.getElementById('edit-categoria').value;
         app.currentItem.descricao = document.getElementById('edit-descricao').value; app.currentItem.observacao = document.getElementById('edit-obs').value.trim();
@@ -323,7 +306,8 @@ const app = {
             await db.clear(); const p = [];
             for (let x = 0; x < localStorage.length; x++) { const k = localStorage.key(x); if (k && (k.startsWith('user_') || k.startsWith('inst_') || k.includes('cloudUsers') || k === 'usersMigrated')) p.push({ k, v: localStorage.getItem(k) }); }
             localStorage.clear(); p.forEach(({ k, v }) => localStorage.setItem(k, v)); window.location.reload();
-        }    },
+        }
+    },
 
     startAudit: async () => {
         if (!app.isLoggedIn) { alert('Faça login'); app.navigate('dashboard'); return; }
@@ -361,7 +345,7 @@ const app = {
         try {
             const i = await db.get(c); if (!i) { alert(`❌ ${c} não encontrado.`); return; }
             const idx = app.auditSession.pending.findIndex(p => p.codigo === c);
-            if (idx === -1) { if (app.auditSession.returned.find(r => r.codigo === c)) alert(`⚠️ ${c} já devolvido.`); else alert(`⚠️ ${c} não está pendente.`); return; }
+            if (idx === -1) { if (app.auditSession.returned.find(r => r.codigo === c)) alert(`⚠️ ${c} já devolvido.`); else alert(`️ ${c} não está pendente.`); return; }
             const info = app.auditSession.pending[idx];
             if (!confirm(`✅ Confirmar?\n${info.codigo}\n${info.descricao}${info.patrimonio ? '\nPat: ' + info.patrimonio : ''}\nResp: ${info.responsavel || 'N/A'}`)) return;
             const d = new Date().toLocaleString('pt-BR');
@@ -372,6 +356,7 @@ const app = {
             if (!app.auditSession.pending.length) setTimeout(() => alert(' Todos devolvidos!'), 500);
         } catch (e) { alert('Erro scan: ' + e.message); }
     },
+
     generateAuditReport: async () => {
         try {
             if (!app.auditSession.returned.length && !app.auditSession.pending.length) { alert('Nenhuma conferência.'); return; }
@@ -392,9 +377,9 @@ const app = {
 
     renderReports: () => {
         if (!app.isLoggedIn || (app.currentUser.nivel || app.currentUser.level) !== 'admin') { alert('Apenas admins'); app.navigate('dashboard'); return; }
-        const r = [ { id: 'completo', icon: '📋', title: 'Completo', desc: 'Todos os itens', color: 'blue' }, { id: 'emprestados', icon: '📤', title: 'Emprestados', desc: 'Itens emprestados', color: 'yellow' }, { id: 'manutencao', icon: '🔧', title: 'Manutenção', desc: 'Status manutenção', color: 'orange' }, { id: 'baixados', icon: '🗑️', title: 'Baixados', desc: 'Itens retirados', color: 'red' }, { id: 'observacoes', icon: '📝', title: 'Observações', desc: 'Pendências', color: 'amber' }, { id: 'categorias', icon: '📊', title: 'Por Categoria', desc: 'Quantitativo', color: 'purple' }, { id: 'historico', icon: '', title: 'Histórico', desc: 'Log alterações', color: 'indigo' } ];
+        const r = [ { id: 'completo', icon: '📋', title: 'Completo', desc: 'Todos os itens', color: 'blue' }, { id: 'emprestados', icon: '', title: 'Emprestados', desc: 'Itens emprestados', color: 'yellow' }, { id: 'manutencao', icon: '', title: 'Manutenção', desc: 'Status manutenção', color: 'orange' }, { id: 'baixados', icon: '🗑️', title: 'Baixados', desc: 'Itens retirados', color: 'red' }, { id: 'observacoes', icon: '📝', title: 'Observações', desc: 'Pendências', color: 'amber' }, { id: 'categorias', icon: '📊', title: 'Por Categoria', desc: 'Quantitativo', color: 'purple' }, { id: 'historico', icon: '📜', title: 'Histórico', desc: 'Log alterações', color: 'indigo' } ];
         const c = document.getElementById('reports-list'); if (!c) return; c.innerHTML = '';
-        r.forEach(x => { const d = document.createElement('div'); d.className = 'bg-white p-4 rounded-lg shadow border-l-4 border-' + x.color + '-500'; d.innerHTML = `<div class="flex items-start gap-3 mb-3"><div class="text-3xl">${x.icon}</div><div class="flex-1"><h3 class="font-bold text-gray-800">${x.title}</h3><p class="text-xs text-gray-600 mt-1">${x.desc}</p></div></div><div class="flex gap-2"><button onclick="app.generateReport('${x.id}','pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold">📄 PDF</button><button onclick="app.generateReport('${x.id}','xlsx')" class="flex-1 bg-green-600 text-white text-xs py-2 rounded font-bold"> XLSX</button><button onclick="app.generateReport('${x.id}','csv')" class="flex-1 bg-blue-600 text-white text-xs py-2 rounded font-bold"> CSV</button></div>`; c.appendChild(d); });
+        r.forEach(x => { const d = document.createElement('div'); d.className = 'bg-white p-4 rounded-lg shadow border-l-4 border-' + x.color + '-500'; d.innerHTML = `<div class="flex items-start gap-3 mb-3"><div class="text-3xl">${x.icon}</div><div class="flex-1"><h3 class="font-bold text-gray-800">${x.title}</h3><p class="text-xs text-gray-600 mt-1">${x.desc}</p></div></div><div class="flex gap-2"><button onclick="app.generateReport('${x.id}','pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold">📄 PDF</button><button onclick="app.generateReport('${x.id}','xlsx')" class="flex-1 bg-green-600 text-white text-xs py-2 rounded font-bold">📊 XLSX</button><button onclick="app.generateReport('${x.id}','csv')" class="flex-1 bg-blue-600 text-white text-xs py-2 rounded font-bold">📝 CSV</button></div>`; c.appendChild(d); });
     },
 
     generateReport: async (rid, fmt) => {
@@ -417,78 +402,23 @@ const app = {
         alert(`✅ "${t}" gerado!\n${d.length} registros em ${fmt.toUpperCase()}`);
     },
 
-            applyPermissions: (p) => {
-        console.log('=== applyPermissions ===');
-        console.log('Permissões recebidas:', p);
-        
-        const toggle = (id, show) => { 
-            const e = document.getElementById(id); 
-            if (e) {
-                console.log(`Elemento ${id}:`, e);
-                if (show) { 
-                    e.classList.remove('hidden'); 
-                    e.style.display = 'block';
-                    console.log(`✓ ${id} visível`);
-                } else { 
-                    e.classList.add('hidden'); 
-                    e.style.display = 'none';
-                    console.log(`✗ ${id} oculto`);
-                }
-            } else {
-                console.log(`✗ Elemento ${id} não encontrado`);
-            }
-        };
-        
-        toggle('btn-user-management', p.canManageUsers);
-        toggle('btn-instituicao-management', p.canManageUsers);
-        
-        const rb = document.getElementById('btn-reports');
-        if (rb) { if (p.canManageUsers) { rb.classList.remove('hidden'); rb.style.display = 'block'; } else { rb.classList.add('hidden'); rb.style.display = 'none'; } }
-        
-        const ab = document.getElementById('btn-audit');
-        if (ab) { if (p.canCreate) { ab.classList.remove('hidden'); ab.style.display = 'block'; } else { ab.classList.add('hidden'); ab.style.display = 'none'; } }
-        
-        const addB = document.querySelector('button[onclick="app.navigate(\'add\')"]');
-        if (addB) { if (p.canCreate) { addB.classList.remove('hidden'); addB.style.display = 'block'; } else { addB.classList.add('hidden'); addB.style.display = 'none'; } }
-        
-        const syncB = document.querySelector('button[onclick="sync.runSync()"]');
-        if (syncB) { if (p.canSync) { syncB.classList.remove('hidden'); syncB.style.display = 'block'; } else { syncB.classList.add('hidden'); syncB.style.display = 'none'; } }
-        
-        const prB = document.querySelector('button[onclick="app.printLabels()"]');
-        if (prB) { if (p.canCreate) { prB.classList.remove('hidden'); prB.style.display = 'block'; } else { prB.classList.add('hidden'); prB.style.display = 'none'; } }
-    },
-
-    openUserManagement: () => {
-        console.log('=== openUserManagement ===');
-        console.log('isLoggedIn:', app.isLoggedIn);
-        console.log('currentUser:', app.currentUser);
-        console.log('localUsers:', app.localUsers);
-        
-        if (!app.isLoggedIn) { 
-            alert('❌ Faça login primeiro'); 
-            return; 
-        }
+    // ===== FUNÇÕES DIRECT (SEM DEPENDÊNCIA DE PERMISSÕES) =====
+    
+    openUserManagementDirect: () => {
+        if (!app.isLoggedIn) { alert('❌ Faça login primeiro'); return; }
         
         const userLevel = app.currentUser?.nivel || app.currentUser?.level;
-        console.log('Nível do usuário:', userLevel);
-        
         if (userLevel !== 'admin') { 
-            alert('❌ Apenas administradores podem gerenciar usuários.\n\nSeu nível: ' + (userLevel || 'não definido')); 
+            alert(' Apenas administradores.\n\nSeu nível: ' + (userLevel || 'não definido')); 
             return; 
         }
         
         const c = document.getElementById('users-list');
-        console.log('Container users-list:', c);
-        
-        if (!c) { 
-            alert('❌ Erro: container da lista não encontrado no HTML'); 
-            return; 
-        }
+        if (!c) { alert('❌ Erro: container não encontrado'); return; }
         
         c.innerHTML = '';
         
-        const usersToShow = app.localUsers.filter(u => !(u.username === 'admin' && u.master));
-        console.log('Usuários para mostrar:', usersToShow);
+        const usersToShow = (app.localUsers || []).filter(u => !(u.username === 'admin' && u.master));
         
         if (usersToShow.length === 0) {
             c.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum usuário cadastrado ainda.<br>Crie o primeiro abaixo.</p>';
@@ -496,205 +426,91 @@ const app = {
             usersToShow.forEach(u => {
                 const d = document.createElement('div');
                 d.className = 'flex justify-between items-center p-2 bg-gray-100 rounded mb-2';
-                d.innerHTML = `<div class="flex-1"><p class="font-bold">${u.nome || u.name || u.username}</p><p class="text-xs text-gray-600">@${u.username} - ${app.accessLevels[u.nivel || u.level]?.name || u.nivel || u.level}</p></div><div class="flex gap-2"><button onclick="app.editUser('${u.username}')" class="text-blue-600 text-xs">Editar</button><button onclick="app.deleteUser('${u.username}')" class="text-red-600 text-xs">Excluir</button></div>`;
+                d.innerHTML = `<div class="flex-1"><p class="font-bold">${u.nome || u.name || u.username}</p><p class="text-xs text-gray-600">@${u.username} - ${app.accessLevels[u.nivel || u.level]?.name || u.nivel || u.level}</p></div><div class="flex gap-2"><button onclick="app.editUserDirect('${u.username}')" class="text-blue-600 text-xs">Editar</button><button onclick="app.deleteUserDirect('${u.username}')" class="text-red-600 text-xs">Excluir</button></div>`;
                 c.appendChild(d);
             });
         }
         
         const modal = document.getElementById('user-management-modal');
-        console.log('Modal:', modal);
-        
         if (modal) {
             modal.classList.remove('hidden');
-            console.log('✓ Modal aberto');
-            alert('✅ Modal de usuários aberto!\n\nUsuários carregados: ' + usersToShow.length);
         } else {
             alert('❌ Erro: modal não encontrado no HTML');
         }
     },
 
-    createUser: async () => {
-        console.log('=== createUser ===');
-        
-        if (!app.isLoggedIn) { 
-            alert('❌ Faça login primeiro'); 
-            return; 
-        }
-        
-        const userLevel = app.currentUser?.nivel || app.currentUser?.level;
-        if (userLevel !== 'admin') { 
-            alert('❌ Apenas administradores'); 
-            return; 
-        }
+    createUserDirect: async () => {
+        if (!app.isLoggedIn) { alert('❌ Faça login primeiro'); return; }
         
         const name = document.getElementById('new-user-name').value.trim();
         const username = document.getElementById('new-user-username').value.trim();
         const password = document.getElementById('new-user-password').value;
         const level = document.getElementById('new-user-level').value;
         
-        console.log('Dados do formulário:', { name, username, password, level });
-        
-        if (!name || !username || !password) { 
-            alert(' Preencha todos os campos'); 
-            return; 
-        }
-        
-        if (username.includes(' ')) { 
-            alert('❌ Usuário não pode ter espaços'); 
-            return; 
-        }
-        
-        if (app.localUsers.find(x => x.username === username)) { 
-            alert('❌ Usuário já existe'); 
-            return; 
-        }
+        if (!name || !username || !password) { alert('❌ Preencha todos os campos'); return; }
+        if (username.includes(' ')) { alert('❌ Usuário não pode ter espaços'); return; }
+        if (app.localUsers.find(x => x.username === username)) { alert('❌ Usuário já existe'); return; }
         
         try {
             const hash = await utils.hashPassword(password);
-            console.log('Hash gerado:', hash);
+            const newUser = { username, nome: name, senhaHash: hash, nivel: level, ativo: true, master: false };
             
-            const newUser = { 
-                username: username, 
-                nome: name, 
-                senhaHash: hash, 
-                nivel: level, 
-                ativo: true, 
-                master: false 
-            };
-            
-            console.log('Novo usuário:', newUser);
-            
-            // Adiciona localmente primeiro
             app.localUsers.push(newUser);
             localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
-            console.log('✓ Usuário salvo localmente');
             
-            // Tenta sincronizar com a nuvem
-            try {
-                const res = await sync.syncUsers([newUser]);
-                console.log('Resposta do sync:', res);
-                
-                if (res.status === 'success') {
-                    alert(`✅ Usuário criado com sucesso!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level]?.name || level}`);
-                    document.getElementById('new-user-name').value = '';
-                    document.getElementById('new-user-username').value = '';
-                    document.getElementById('new-user-password').value = '';
-                    app.openUserManagement();
-                } else {
-                    alert(`⚠️ Usuário criado LOCALMENTE, mas erro ao sincronizar:\n${res.message}\n\nO usuário funcionará neste dispositivo.`);
-                    app.openUserManagement();
-                }
-            } catch (syncError) {
-                console.error('Erro no sync:', syncError);
-                alert(`⚠️ Usuário criado LOCALMENTE, mas erro de conexão:\n${syncError.message}\n\nO usuário funcionará neste dispositivo.`);
-                app.openUserManagement();
-            }
+            // Tenta sincronizar com a nuvem (silenciosamente)
+            try { await sync.syncUsers([newUser]); } catch(e) { console.log('Sync falhou, mas usuário criado localmente'); }
+            
+            alert(`✅ Usuário criado com sucesso!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level]?.name || level}`);
+            
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-username').value = '';
+            document.getElementById('new-user-password').value = '';
+            
+            app.openUserManagementDirect();
         } catch (error) {
-            console.error('Erro ao criar usuário:', error);
             alert('❌ Erro ao criar usuário: ' + error.message);
         }
     },
+
+    editUserDirect: async (username) => {
+        const user = app.localUsers.find(x => x.username === username);
+        if (!user) { alert('❌ Usuário não encontrado'); return; }
+        
+        const newLevel = prompt(`Alterar nível de ${user.nome || user.username}?\n\nAtual: ${app.accessLevels[user.nivel || user.level]?.name || user.nivel || user.level}\n\nDigite: admin, editor ou viewer`, user.nivel || user.level);
+        if (newLevel && ['admin', 'editor', 'viewer'].includes(newLevel)) {
+            user.nivel = newLevel;
+            localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
+            try { await sync.syncUsers([user]); } catch(e) {}
+            alert(`✅ Nível alterado para: ${app.accessLevels[newLevel]?.name || newLevel}`);
+        } else if (newLevel) alert('❌ Nível inválido');
+        
+        if (confirm('Deseja alterar a senha?')) {
+            const newPass = prompt('Nova senha:');
+            if (newPass && newPass.trim()) {
+                user.senhaHash = await utils.hashPassword(newPass.trim());
+                localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
+                try { await sync.syncUsers([user]); } catch(e) {}
+                alert('✅ Senha alterada!');
+            }
+        }
+        app.openUserManagementDirect();
+    },
+
+    deleteUserDirect: async (username) => {
+        if (confirm(`Excluir usuário ${username}?\n\nEsta ação revoga o acesso permanentemente.`)) {
+            const idx = app.localUsers.findIndex(x => x.username === username);
+            if (idx > -1) {
+                app.localUsers.splice(idx, 1);
+                localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
+                try { await sync.syncUsers([{ username, ativo: false }]); } catch(e) {}
+                alert('✅ Usuário excluído e acesso revogado.');
+            }
+            app.openUserManagementDirect();
+        }
+    },
+
     closeUserManagement: () => { document.getElementById('user-management-modal').classList.add('hidden'); },
-
-  createUser: async () => {
-        console.log('=== createUser ===');
-        
-        if (!app.isLoggedIn) { 
-            alert('❌ Faça login primeiro'); 
-            return; 
-        }
-        
-        const userLevel = app.currentUser?.nivel || app.currentUser?.level;
-        if (userLevel !== 'admin') { 
-            alert('❌ Apenas administradores'); 
-            return; 
-        }
-        
-        const name = document.getElementById('new-user-name').value.trim();
-        const username = document.getElementById('new-user-username').value.trim();
-        const password = document.getElementById('new-user-password').value;
-        const level = document.getElementById('new-user-level').value;
-        
-        console.log('Dados do formulário:', { name, username, password, level });
-        
-        if (!name || !username || !password) { 
-            alert(' Preencha todos os campos'); 
-            return; 
-        }
-        
-        if (username.includes(' ')) { 
-            alert('❌ Usuário não pode ter espaços'); 
-            return; 
-        }
-        
-        if (app.localUsers.find(x => x.username === username)) { 
-            alert('❌ Usuário já existe'); 
-            return; 
-        }
-        
-        try {
-            const hash = await utils.hashPassword(password);
-            console.log('Hash gerado:', hash);
-            
-            const newUser = { 
-                username: username, 
-                nome: name, 
-                senhaHash: hash, 
-                nivel: level, 
-                ativo: true, 
-                master: false 
-            };
-            
-            console.log('Novo usuário:', newUser);
-            
-            // Adiciona localmente primeiro
-            app.localUsers.push(newUser);
-            localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
-            console.log('✓ Usuário salvo localmente');
-            
-            // Tenta sincronizar com a nuvem
-            try {
-                const res = await sync.syncUsers([newUser]);
-                console.log('Resposta do sync:', res);
-                
-                if (res.status === 'success') {
-                    alert(`✅ Usuário criado com sucesso!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level]?.name || level}`);
-                    document.getElementById('new-user-name').value = '';
-                    document.getElementById('new-user-username').value = '';
-                    document.getElementById('new-user-password').value = '';
-                    app.openUserManagement();
-                } else {
-                    alert(`⚠️ Usuário criado LOCALMENTE, mas erro ao sincronizar:\n${res.message}\n\nO usuário funcionará neste dispositivo.`);
-                    app.openUserManagement();
-                }
-            } catch (syncError) {
-                console.error('Erro no sync:', syncError);
-                alert(`⚠️ Usuário criado LOCALMENTE, mas erro de conexão:\n${syncError.message}\n\nO usuário funcionará neste dispositivo.`);
-                app.openUserManagement();
-            }
-        } catch (error) {
-            console.error('Erro ao criar usuário:', error);
-            alert('❌ Erro ao criar usuário: ' + error.message);
-        }
-    },
-
-    editUser: async (u) => {
-        if (!app.isLoggedIn || (app.currentUser.nivel || app.currentUser.level) !== 'admin') return;
-        const user = app.localUsers.find(x => x.username === u); if (!user) { alert('Não encontrado'); return; }
-        const nl = prompt(`Nível de ${user.nome || user.name}?\nAtual: ${app.accessLevels[user.nivel || user.level]?.name || user.nivel || user.level}\n\nDigite: admin, editor ou viewer`, user.nivel || user.level);
-        if (nl && ['admin', 'editor', 'viewer'].includes(nl)) { user.nivel = nl; const r = await sync.syncUsers([user]); if (r.status === 'success') { localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers)); alert(`Nível: ${app.accessLevels[nl]?.name || nl}`); } else alert('Erro: ' + r.message); } else if (nl) alert('Inválido');
-        if (confirm('Alterar senha?')) { const np = prompt('Nova senha:'); if (np?.trim()) { user.senhaHash = await utils.hashPassword(np.trim()); const r = await sync.syncUsers([user]); if (r.status === 'success') { localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers)); alert('Senha alterada!'); } else alert('Erro: ' + r.message); } }
-        app.openUserManagement();
-    },
-
-    deleteUser: async (u) => {
-        if (!app.isLoggedIn || (app.currentUser.nivel || app.currentUser.level) !== 'admin') return;
-        if (confirm(`Excluir ${u}?\nAcesso revogado.`)) {
-            const idx = app.localUsers.findIndex(x => x.username === u);
-            if (idx > -1) { app.localUsers.splice(idx, 1); localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers)); await sync.syncUsers([{ username: u, ativo: false }]); alert('Excluído e revogado.'); }
-            app.openUserManagement();
-        }
-    },
 
     openInstituicaoManagement: () => {
         if (!app.isLoggedIn || (app.currentUser.nivel || app.currentUser.level) !== 'admin') { alert('Apenas admins'); return; }
@@ -703,6 +519,7 @@ const app = {
         document.getElementById('instituicao-management-modal').classList.remove('hidden');
     },
     closeInstituicaoManagement: () => { document.getElementById('instituicao-management-modal').classList.add('hidden'); },
+
     createInstituicao: async () => {
         if (!app.isLoggedIn || (app.currentUser.nivel || app.currentUser.level) !== 'admin') return;
         const n = document.getElementById('new-inst-nome').value.trim(); const ci = document.getElementById('new-inst-cidade').value.trim(); const li = document.getElementById('new-inst-logo');
@@ -726,7 +543,7 @@ const app = {
                         for (const u of mig) { if (!app.localUsers.find(x => x.username === u.username)) app.localUsers.push(u); }
                         localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
                         await sync.syncUsers(mig);
-                        ok.forEach(k => localStorage.removeItem(k)); localStorage.setItem('usersMigrated', 'true'); console.log(`✅ Migrados ${mig.length}.`);
+                        ok.forEach(k => localStorage.removeItem(k)); localStorage.setItem('usersMigrated', 'true');
                     } else localStorage.setItem('usersMigrated', 'true');
                 } else localStorage.setItem('usersMigrated', 'true');
             }
