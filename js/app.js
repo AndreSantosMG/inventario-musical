@@ -405,19 +405,48 @@ const app = {
         alert(`✅ "${t}" gerado!\n${d.length} registros em ${fmt.toUpperCase()}`);
     },
 
-    openUserManagement: () => {
-        if (!app.isLoggedIn || (app.currentUser.nivel || app.currentUser.level) !== 'admin') { alert('Apenas admins'); return; }
-        const c = document.getElementById('users-list'); if (!c) { alert('Erro: container não encontrado'); return; }
+        openUserManagement: () => {
+        // Debug: mostra o estado atual
+        console.log('isLoggedIn:', app.isLoggedIn);
+        console.log('currentUser:', app.currentUser);
+        console.log('localUsers:', app.localUsers);
+        
+        if (!app.isLoggedIn) { alert('Faça login primeiro'); return; }
+        
+        const userLevel = app.currentUser?.nivel || app.currentUser?.level;
+        console.log('userLevel:', userLevel);
+        
+        if (userLevel !== 'admin') { 
+            alert('Apenas administradores podem gerenciar usuários.\n\nSeu nível: ' + (userLevel || 'não definido')); 
+            return; 
+        }
+        
+        const c = document.getElementById('users-list');
+        if (!c) { alert('Erro: container da lista não encontrado'); return; }
+        
         c.innerHTML = '';
-        if (!app.localUsers.length) c.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum usuário cadastrado ainda.<br>Crie o primeiro abaixo.</p>';        else {
-            app.localUsers.forEach(u => {
-                if (u.username === 'admin' && u.master) return;
-                const d = document.createElement('div'); d.className = 'flex justify-between items-center p-2 bg-gray-100 rounded mb-2';
+        
+        // Mostra todos os usuários exceto o admin master local
+        const usersToShow = app.localUsers.filter(u => !(u.username === 'admin' && u.master));
+        
+        if (usersToShow.length === 0) {
+            c.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum usuário cadastrado ainda.<br>Crie o primeiro abaixo.</p>';
+        } else {
+            usersToShow.forEach(u => {
+                const d = document.createElement('div');
+                d.className = 'flex justify-between items-center p-2 bg-gray-100 rounded mb-2';
                 d.innerHTML = `<div class="flex-1"><p class="font-bold">${u.nome || u.name || u.username}</p><p class="text-xs text-gray-600">@${u.username} - ${app.accessLevels[u.nivel || u.level]?.name || u.nivel || u.level}</p></div><div class="flex gap-2"><button onclick="app.editUser('${u.username}')" class="text-blue-600 text-xs">Editar</button><button onclick="app.deleteUser('${u.username}')" class="text-red-600 text-xs">Excluir</button></div>`;
                 c.appendChild(d);
             });
         }
-        document.getElementById('user-management-modal').classList.remove('hidden');
+        
+        const modal = document.getElementById('user-management-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            console.log('Modal aberto com sucesso');
+        } else {
+            alert('Erro: modal não encontrado no HTML');
+        }
     },
     closeUserManagement: () => { document.getElementById('user-management-modal').classList.add('hidden'); },
 
