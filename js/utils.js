@@ -28,9 +28,9 @@ const utils = {
         return 'inst_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     },
     exportCSV: (items) => {
-        const headers = ['Codigo', 'Instituicao', 'Categoria', 'Descricao', 'Status', 'Responsavel', 'DataEntrada', 'Observacao'];
-        const rows = items.map(i => [i.codigo, i.instituicaoNome || '', i.categoria, i.descricao, i.status, i.responsavel || '', i.dataEntrada, i.observacao || '']);
-        const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(e => e.join(";")).join("\n");
+        const headers = ['Codigo', 'Patrimonio', 'Instituicao', 'Categoria', 'Descricao', 'Status', 'Responsavel', 'DataEntrada', 'Observacao'];
+        const rows = items.map(i => [i.codigo, i.patrimonio || '', i.instituicaoNome || '', i.categoria, i.descricao, i.status, i.responsavel || '', i.dataEntrada, i.observacao || '']);
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers, ...rows].map(e => e.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -41,13 +41,20 @@ const utils = {
     },
     exportPDF: (items) => {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        const doc = new jsPDF('landscape', 'mm', 'a4');
         doc.text("Relatório de Inventário", 14, 15);
-        const tableData = items.map(i => [i.codigo, i.instituicaoNome || '', i.categoria, i.descricao, i.status]);
-        doc.autoTable({ head: [['Código', 'Unidade', 'Categoria', 'Descrição', 'Status']], body: tableData, startY: 20 });
+        const tableData = items.map(i => [i.codigo, i.patrimonio || '-', i.instituicaoNome || '', i.categoria, i.descricao, i.status]);
+        doc.autoTable({ 
+            head: [['Código', 'Patrimônio', 'Unidade', 'Categoria', 'Descrição', 'Status']], 
+            body: tableData, 
+            startY: 20,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [30, 58, 138], textColor: 255 }
+        });
         doc.save("inventario.pdf");
     },
-    exportCSVReport: (data, nomeArquivo) => {        if (!data || data.length === 0) return;
+    exportCSVReport: (data, nomeArquivo) => {
+        if (!data || data.length === 0) return;
         const headers = Object.keys(data[0]);
         const rows = data.map(item => headers.map(h => item[h] || ''));
         const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers, ...rows].map(e => e.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
@@ -66,7 +73,6 @@ const utils = {
         }
         const wb = XLSX.utils.book_new();
         
-        // Cabeçalho informativo
         const headerData = [
             [titulo],
             [`Instituição: ${instituicao}`],
@@ -76,11 +82,9 @@ const utils = {
             []
         ];
         
-        // Dados
         const wsData = [...headerData, ...data.map(item => Object.values(item))];
         const ws = XLSX.utils.aoa_to_sheet(wsData);
         
-        // Largura das colunas
         const headers = Object.keys(data[0]);
         ws['!cols'] = headers.map(() => ({ wch: 20 }));
         
@@ -91,15 +95,14 @@ const utils = {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape', 'mm', 'a4');
         
-        // Cabeçalho
         doc.setFontSize(16);
         doc.text(titulo, 14, 15);
         doc.setFontSize(10);
         doc.text(`Instituição: ${instituicao}`, 14, 22);
-        doc.text(`Data: ${dataGeracao}`, 14, 27);        doc.text(`Gerado por: ${usuario}`, 14, 32);
+        doc.text(`Data: ${dataGeracao}`, 14, 27);
+        doc.text(`Gerado por: ${usuario}`, 14, 32);
         doc.text(`Total de registros: ${data.length}`, 14, 37);
         
-        // Tabela
         const headers = [Object.keys(data[0])];
         const body = data.map(item => Object.values(item).map(v => String(v || '-')));
         
