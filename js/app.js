@@ -447,28 +447,43 @@ const app = {
         }
     },
 
-    createUserDirect: async () => {
-        if (!app.isLoggedIn) { alert('❌ Faça login primeiro'); return; }
+        createUserDirect: async () => {
+        alert('🔍 Passo 1: Função chamada');
+        
+        if (!app.isLoggedIn) { alert('❌ Não está logado'); return; }
+        alert('✅ Passo 2: Logado como ' + app.currentUser?.nome);
         
         const name = document.getElementById('new-user-name').value.trim();
         const username = document.getElementById('new-user-username').value.trim();
         const password = document.getElementById('new-user-password').value;
         const level = document.getElementById('new-user-level').value;
         
+        alert(`🔍 Passo 3: Dados coletados\nNome: ${name}\nUsuário: ${username}\nNível: ${level}\nSenha: ${password ? 'SIM' : 'NÃO'}`);
+        
         if (!name || !username || !password) { alert('❌ Preencha todos os campos'); return; }
         if (username.includes(' ')) { alert('❌ Usuário não pode ter espaços'); return; }
         if (app.localUsers.find(x => x.username === username)) { alert('❌ Usuário já existe'); return; }
         
+        alert('✅ Passo 4: Validações OK. Gerando hash...');
+        
         try {
             const hash = await utils.hashPassword(password);
+            alert('✅ Passo 5: Hash gerado: ' + hash.substring(0, 20) + '...');
+            
             const newUser = { username, nome: name, senhaHash: hash, nivel: level, ativo: true, master: false };
             
             app.localUsers.push(newUser);
             localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
+            alert('✅ Passo 6: Usuário salvo localmente');
             
-            try { await sync.syncUsers([newUser]); } catch(e) { console.log('Sync falhou, mas usuário criado localmente'); }
+            try { 
+                await sync.syncUsers([newUser]); 
+                alert('✅ Passo 7: Sincronizado com nuvem');
+            } catch(e) { 
+                alert('⚠️ Passo 7: Sync falhou, mas usuário criado localmente');
+            }
             
-            alert(`✅ Usuário criado com sucesso!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level]?.name || level}`);
+            alert(`✅ USUÁRIO CRIADO COM SUCESSO!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level]?.name || level}`);
             
             document.getElementById('new-user-name').value = '';
             document.getElementById('new-user-username').value = '';
@@ -476,7 +491,7 @@ const app = {
             
             app.openUserManagementDirect();
         } catch (error) {
-            alert('❌ Erro ao criar usuário: ' + error.message);
+            alert('❌ ERRO: ' + error.message + '\n\nStack: ' + error.stack);
         }
     },
 
