@@ -692,33 +692,81 @@ const app = {
         else { alert('❌ Erro: modal não encontrado no HTML'); }
     },
 
-    createUserDirect: async function() {
-        alert('🔍 Função chamada!');
+        createUserDirect: async function() {
+        alert('🔍 Passo 1: Função chamada');
+        
         if (!app.isLoggedIn) { alert('❌ Não está logado'); return; }
+        alert('✅ Passo 2: Logado');
+        
         var name = document.getElementById('new-user-name').value.trim();
         var username = document.getElementById('new-user-username').value.trim();
         var password = document.getElementById('new-user-password').value;
         var level = document.getElementById('new-user-level').value;
-        alert('🔍 Dados: ' + name + ', ' + username + ', ' + level);
+        
+        alert('🔍 Passo 3: Dados - ' + name + ', ' + username + ', nível: ' + level);
+        
         if (!name || !username || !password) { alert('❌ Preencha todos os campos'); return; }
-        if (username.includes(' ')) { alert('❌ Usuário não pode ter espaços'); return; }
-        if (app.localUsers.find(function(x) { return x.username === username; })) { alert(' Usuário já existe'); return; }
-        alert('🔍 Gerando hash...');
+        if (username.includes(' ')) { alert('❌ Sem espaços no usuário'); return; }
+        if (app.localUsers.find(function(x) { return x.username === username; })) { alert('❌ Já existe'); return; }
+        
+        alert('✅ Passo 4: Validações OK. Tentando hash...');
+        
+        var hash = '';
         try {
-            var hash = await utils.hashPassword(password);
-            alert('🔍 Hash OK');
-            var newUser = { username: username, nome: name, senhaHash: hash, nivel: level, ativo: true, master: false };
+            // Tenta usar crypto.subtle (seguro)
+            if (typeof utils !== 'undefined' && typeof utils.hashPassword === 'function') {
+                hash = await utils.hashPassword(password);
+                alert('✅ Passo 5: Hash criptográfico gerado');
+            } else {
+                throw new Error('utils.hashPassword não disponível');
+            }
+        } catch (e) {
+            alert('⚠️ Hash criptográfico falhou: ' + e.message + '\nUsando fallback...');
+            // Fallback: hash simples (não seguro, mas funcional para teste)
+            hash = 'fallback_' + btoa(username + ':' + password).replace(/[^a-zA-Z0-9]/g, '');
+            alert('✅ Passo 5 (fallback): Hash simples gerado');
+        }
+        
+        try {
+            var newUser = {
+                username: username,
+                nome: name,
+                senhaHash: hash,
+                nivel: level,
+                ativo: true,
+                master: false
+            };
+            
+            alert('🔍 Passo 6: Criando objeto usuário...');
+            
             app.localUsers.push(newUser);
             localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
-            alert('🔍 Salvo localmente');
-            try { await sync.syncUsers([newUser]); } catch(e) { console.log('Sync falhou'); }
-            alert('✅ Usuário criado!\n\nNome: ' + name + '\nUsuário: ' + username + '\nNível: ' + (app.accessLevels[level] ? app.accessLevels[level].name : level));
+            
+            alert('✅ Passo 7: Salvo localmente. Total de usuários: ' + app.localUsers.length);
+            
+            // Tenta sincronizar (silenciosamente)
+            try {
+                if (typeof sync !== 'undefined' && typeof sync.syncUsers === 'function') {
+                    await sync.syncUsers([newUser]);
+                    alert('✅ Passo 8: Sincronizado com nuvem');
+                } else {
+                    alert('⚠️ Passo 8: sync.syncUsers não disponível (offline)');
+                }
+            } catch (syncErr) {
+                alert('⚠️ Passo 8: Sync falhou: ' + syncErr.message);
+            }
+            
+            alert('✅ USUÁRIO CRIADO COM SUCESSO!\n\nNome: ' + name + '\nUsuário: ' + username + '\nNível: ' + (app.accessLevels[level] ? app.accessLevels[level].name : level));
+            
+            // Limpa formulário
             document.getElementById('new-user-name').value = '';
             document.getElementById('new-user-username').value = '';
             document.getElementById('new-user-password').value = '';
+            
+            // Reabre modal
             app.openUserManagementDirect();
         } catch (error) {
-            alert('❌ ERRO: ' + error.message);
+            alert('❌ ERRO FINAL: ' + error.message + '\n\nStack: ' + error.stack);
         }
     },
 
