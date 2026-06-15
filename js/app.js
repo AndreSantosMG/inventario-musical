@@ -544,94 +544,140 @@ const app = {
         }
     },
 
-    // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO =====
+       // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO =====
     
     startAudit: async () => {
-        if (!app.isLoggedIn) {
-            alert('Faça login para iniciar conferência');
-            app.navigate('dashboard');
-            return;
-        }
-
-        // Carrega todos os itens emprestados        const allItems = await db.getAll(app.currentInstituicao?.id);
-        const emprestados = allItems.filter(i => i.status === 'Emprestado');
-
-        if (emprestados.length === 0) {
-            if (!confirm('Não há itens emprestados no momento.\n\nDeseja iniciar uma conferência mesmo assim? (Útil para conferir itens que serão emprestados)')) {
+        try {
+            console.log('Iniciando conferência de devolução...');
+            
+            if (!app.isLoggedIn) {
+                alert('Faça login para iniciar conferência');
                 app.navigate('dashboard');
                 return;
             }
+
+            if (!app.currentInstituicao) {
+                alert('Selecione uma instituição primeiro');
+                app.navigate('dashboard');
+                return;
+            }
+
+            console.log('Carregando itens emprestados...');
+            const allItems = await db.getAll(app.currentInstituicao.id);
+            const emprestados = allItems.filter(i => i.status === 'Emprestado');
+
+            console.log(`Encontrados ${emprestados.length} itens emprestados`);
+
+            if (emprestados.length === 0) {
+                const continuar = confirm('Não há itens emprestados no momento.\n\nDeseja iniciar uma conferência mesmo assim? (Útil para conferir itens que serão emprestados)');
+                if (!continuar) {
+                    app.navigate('dashboard');
+                    return;
+                }
+            }
+
+            // Inicializa sessão de auditoria
+            app.auditSession = {
+                pending: emprestados.map(i => ({
+                    codigo: i.codigo,
+                    descricao: i.descricao,
+                    responsavel: i.responsavel,
+                    categoria: i.categoria
+                })),
+                returned: [],
+                startTime: new Date().toISOString()
+            };
+
+            console.log('Sessão de auditoria inicializada:', app.auditSession);
+            console.log('Navegando para view audit...');
+
+            // Navega para a view de auditoria
+            app.navigate('audit');
+            
+            console.log('Conferência iniciada com sucesso');
+        } catch (error) {
+            console.error('Erro ao iniciar conferência:', error);
+            alert('Erro ao iniciar conferência: ' + error.message);
         }
-
-        // Inicializa sessão de auditoria
-        app.auditSession = {
-            pending: emprestados.map(i => ({
-                codigo: i.codigo,
-                descricao: i.descricao,
-                responsavel: i.responsavel,
-                categoria: i.categoria
-            })),
-            returned: [],
-            startTime: new Date().toISOString()
-        };
-
-        app.navigate('audit');
     },
 
     renderAudit: () => {
-        // Atualiza estatísticas
-        document.getElementById('audit-pendentes').textContent = app.auditSession.pending.length;
-        document.getElementById('audit-devolvidos').textContent = app.auditSession.returned.length;
-        document.getElementById('audit-total').textContent = app.auditSession.pending.length + app.auditSession.returned.length;
+        try {
+            console.log('Renderizando view de auditoria...');
+            
+            // Atualiza estatísticas
+            const pendentesEl = document.getElementById('audit-pendentes');
+            const devolvidosEl = document.getElementById('audit-devolvidos');
+            const totalEl = document.getElementById('audit-total');
+            
+            if (pendentesEl) pendentesEl.textContent = app.auditSession.pending.length;
+            if (devolvidosEl) devolvidosEl.textContent = app.auditSession.returned.length;
+            if (totalEl) totalEl.textContent = app.auditSession.pending.length + app.auditSession.returned.length;
 
-        // Lista de pendentes
-        const pendingContainer = document.getElementById('audit-pending-list');
-        if (pendingContainer) {
-            if (app.auditSession.pending.length === 0) {
-                pendingContainer.innerHTML = '<p class="text-center text-green-600 py-4">✅ Todos os itens foram devolvidos!</p>';
-            } else {
-                pendingContainer.innerHTML = app.auditSession.pending.map(item => `
-                    <div class="bg-yellow-50 p-2 rounded border-l-4 border-yellow-500">
-                        <p class="font-bold text-sm">${item.codigo}</p>
-                        <p class="text-xs text-gray-600">${item.descricao}</p>
-                        <p class="text-xs text-gray-500">Responsável: ${item.responsavel || 'N/A'}</p>
-                    </div>
-                `).join('');
+            // Lista de pendentes
+            const pendingContainer = document.getElementById('audit-pending-list');
+            if (pendingContainer) {
+                if (app.auditSession.pending.length === 0) {
+                    pendingContainer.innerHTML = '<p class="text-center text-green-600 py-4">✅ Todos os itens foram devolvidos!</p>';
+                } else {
+                    pendingContainer.innerHTML = app.auditSession.pending.map(item => `
+                        <div class="bg-yellow-50 p-2 rounded border-l-4 border-yellow-500">
+                            <p class="font-bold text-sm">${item.codigo}</p>
+                            <p class="text-xs text-gray-600">${item.descricao}</p>
+                            <p class="text-xs text-gray-500">Responsável: ${item.responsavel || 'N/A'}</p>
+                        </div>
+                    `).join('');
+                }
             }
-        }
 
-        // Lista de devolvidos
-        const returnedContainer = document.getElementById('audit-returned-list');
-        if (returnedContainer) {            if (app.auditSession.returned.length === 0) {
-                returnedContainer.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum item devolvido ainda</p>';
-            } else {
-                returnedContainer.innerHTML = app.auditSession.returned.map(item => `
-                    <div class="bg-green-50 p-2 rounded border-l-4 border-green-500">
-                        <p class="font-bold text-sm">${item.codigo}</p>
-                        <p class="text-xs text-gray-600">${item.descricao}</p>
-                        <p class="text-xs text-green-600">Devolvido em: ${item.returnedAt}</p>
-                    </div>
-                `).join('');
+            // Lista de devolvidos
+            const returnedContainer = document.getElementById('audit-returned-list');
+            if (returnedContainer) {
+                if (app.auditSession.returned.length === 0) {
+                    returnedContainer.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum item devolvido ainda</p>';
+                } else {
+                    returnedContainer.innerHTML = app.auditSession.returned.map(item => `
+                        <div class="bg-green-50 p-2 rounded border-l-4 border-green-500">
+                            <p class="font-bold text-sm">${item.codigo}</p>
+                            <p class="text-xs text-gray-600">${item.descricao}</p>
+                            <p class="text-xs text-green-600">Devolvido em: ${item.returnedAt}</p>
+                        </div>
+                    `).join('');
+                }
             }
+            
+            console.log('View de auditoria renderizada com sucesso');
+        } catch (error) {
+            console.error('Erro ao renderizar auditoria:', error);
         }
     },
 
     startAuditScanner: () => {
-        const container = document.getElementById('audit-reader-container');
-        if (container) container.classList.remove('hidden');
+        try {
+            console.log('Iniciando scanner de auditoria...');
+            
+            const container = document.getElementById('audit-reader-container');
+            if (container) container.classList.remove('hidden');
 
-        app.auditScanner = new Html5Qrcode("audit-reader");
-        app.auditScanner.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            async (decodedText) => {
-                await app.processAuditScan(decodedText);
-            },
-            () => { }
-        ).catch(err => {
-            alert('Erro ao iniciar câmera: ' + err);
-            app.stopAuditScanner();
-        });
+            app.auditScanner = new Html5Qrcode("audit-reader");
+            app.auditScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                async (decodedText) => {
+                    await app.processAuditScan(decodedText);
+                },
+                () => { }
+            ).catch(err => {
+                console.error('Erro ao iniciar scanner:', err);
+                alert('Erro ao iniciar câmera: ' + err);
+                app.stopAuditScanner();
+            });
+            
+            console.log('Scanner iniciado');
+        } catch (error) {
+            console.error('Erro ao iniciar scanner:', error);
+            alert('Erro ao iniciar scanner: ' + error.message);
+        }
     },
 
     stopAuditScanner: () => {
@@ -644,131 +690,134 @@ const app = {
     },
 
     processAuditScan: async (codigo) => {
-        // Verifica se o item existe no banco
-        const item = await db.get(codigo);
-        
-        if (!item) {
-            alert(`❌ Item ${codigo} não encontrado no banco de dados.`);
-            return;
-        }
-        // Verifica se está na lista de pendentes
-        const pendingIndex = app.auditSession.pending.findIndex(p => p.codigo === codigo);
-        
-        if (pendingIndex === -1) {
-            // Verifica se já foi devolvido nesta sessão
-            const alreadyReturned = app.auditSession.returned.find(r => r.codigo === codigo);
-            if (alreadyReturned) {
-                alert(`⚠️ Item ${codigo} já foi marcado como devolvido nesta sessão.`);
-            } else {
-                alert(`⚠️ Item ${codigo} não está na lista de pendentes (pode já estar como Ativo).`);
+        try {
+            console.log('Processando scan:', codigo);
+            
+            const item = await db.get(codigo);
+            
+            if (!item) {
+                alert(`❌ Item ${codigo} não encontrado no banco de dados.`);
+                return;
             }
-            return;
-        }
 
-        // Confirma a devolução
-        const itemInfo = app.auditSession.pending[pendingIndex];
-        if (!confirm(`✅ Confirmar devolução?\n\n${itemInfo.codigo}\n${itemInfo.descricao}\nResponsável: ${itemInfo.responsavel || 'N/A'}`)) {
-            return;
-        }
+            const pendingIndex = app.auditSession.pending.findIndex(p => p.codigo === codigo);
+            
+            if (pendingIndex === -1) {
+                const alreadyReturned = app.auditSession.returned.find(r => r.codigo === codigo);
+                if (alreadyReturned) {
+                    alert(`⚠️ Item ${codigo} já foi marcado como devolvido nesta sessão.`);
+                } else {
+                    alert(`⚠️ Item ${codigo} não está na lista de pendentes (pode já estar como Ativo).`);
+                }
+                return;
+            }
 
-        // Atualiza o item no banco
-        const now = new Date();
-        const dataDevolucao = now.toLocaleString('pt-BR');
-        
-        item.status = 'Ativo';
-        item.historico.push(`Devolvido em ${dataDevolucao} por ${app.currentUser.name} (Conferência)`);
-        item.responsavel = null;
-        
-        await db.save(item);
+            const itemInfo = app.auditSession.pending[pendingIndex];
+            const confirmar = confirm(`✅ Confirmar devolução?\n\n${itemInfo.codigo}\n${itemInfo.descricao}\nResponsável: ${itemInfo.responsavel || 'N/A'}`);
+            
+            if (!confirmar) return;
 
-        // Move da lista de pendentes para devolvidos
-        app.auditSession.pending.splice(pendingIndex, 1);
-        app.auditSession.returned.push({
-            codigo: itemInfo.codigo,
-            descricao: itemInfo.descricao,
-            responsavel: itemInfo.responsavel,
-            categoria: itemInfo.categoria,
-            returnedAt: dataDevolucao
-        });
+            const now = new Date();
+            const dataDevolucao = now.toLocaleString('pt-BR');
+            
+            item.status = 'Ativo';
+            item.historico.push(`Devolvido em ${dataDevolucao} por ${app.currentUser.name} (Conferência)`);
+            item.responsavel = null;
+            
+            await db.save(item);
 
-        // Feedback visual e sonoro (vibração se disponível)
-        if (navigator.vibrate) {
-            navigator.vibrate(200);
-        }
+            app.auditSession.pending.splice(pendingIndex, 1);
+            app.auditSession.returned.push({
+                codigo: itemInfo.codigo,
+                descricao: itemInfo.descricao,
+                responsavel: itemInfo.responsavel,
+                categoria: itemInfo.categoria,
+                returnedAt: dataDevolucao
+            });
 
-        alert(`✅ Item devolvido com sucesso!\n\n${itemInfo.codigo}\n${itemInfo.descricao}`);
+            if (navigator.vibrate) navigator.vibrate(200);
 
-        // Atualiza a tela
-        app.renderAudit();
-        app.updateDashboard();
-        // Verifica se todos foram devolvidos
-        if (app.auditSession.pending.length === 0) {
-            setTimeout(() => {
-                alert('🎉 Todos os itens foram devolvidos!\n\nVocê pode gerar o relatório de conferência.');
-            }, 500);
+            alert(`✅ Item devolvido com sucesso!\n\n${itemInfo.codigo}\n${itemInfo.descricao}`);
+
+            app.renderAudit();
+            app.updateDashboard();
+
+            if (app.auditSession.pending.length === 0) {
+                setTimeout(() => {
+                    alert('🎉 Todos os itens foram devolvidos!\n\nVocê pode gerar o relatório de conferência.');
+                }, 500);
+            }
+            
+            console.log('Scan processado com sucesso');
+        } catch (error) {
+            console.error('Erro ao processar scan:', error);
+            alert('Erro ao processar scan: ' + error.message);
         }
     },
 
     generateAuditReport: async () => {
-        if (app.auditSession.returned.length === 0 && app.auditSession.pending.length === 0) {
-            alert('Nenhuma conferência em andamento.');
-            return;
-        }
+        try {
+            if (app.auditSession.returned.length === 0 && app.auditSession.pending.length === 0) {
+                alert('Nenhuma conferência em andamento.');
+                return;
+            }
 
-        const format = prompt('Escolha o formato do relatório:\n\n1 - PDF\n2 - XLSX (Excel)\n3 - CSV\n\nDigite o número:', '1');
-        
-        if (!['1', '2', '3'].includes(format)) {
-            alert('Formato inválido.');
-            return;
-        }
+            const format = prompt('Escolha o formato do relatório:\n\n1 - PDF\n2 - XLSX (Excel)\n3 - CSV\n\nDigite o número:', '1');
+            
+            if (!['1', '2', '3'].includes(format)) {
+                alert('Formato inválido.');
+                return;
+            }
 
-        const dataGeracao = new Date().toLocaleString('pt-BR');
-        const inicioSessao = new Date(app.auditSession.startTime).toLocaleString('pt-BR');
-        
-        let data = [];
-        let titulo = 'Relatório de Conferência de Devolução';
+            const dataGeracao = new Date().toLocaleString('pt-BR');
+            
+            let data = [];
+            let titulo = 'Relatório de Conferência de Devolução';
 
-        // Itens devolvidos
-        app.auditSession.returned.forEach(item => {
-            data.push({
-                'Código': item.codigo,
-                'Descrição': item.descricao,
-                'Categoria': item.categoria,
-                'Responsável Original': item.responsavel || '-',
-                'Status': 'Devolvido',
-                'Data/Hora Devolução': item.returnedAt,
-                'Conferido por': app.currentUser.name
+            app.auditSession.returned.forEach(item => {
+                data.push({
+                    'Código': item.codigo,
+                    'Descrição': item.descricao,
+                    'Categoria': item.categoria,
+                    'Responsável Original': item.responsavel || '-',
+                    'Status': 'Devolvido',
+                    'Data/Hora Devolução': item.returnedAt,
+                    'Conferido por': app.currentUser.name
+                });
             });
-        });
 
-        // Itens pendentes
-        app.auditSession.pending.forEach(item => {
-            data.push({
-                'Código': item.codigo,
-                'Descrição': item.descricao,
-                'Categoria': item.categoria,
-                'Responsável Original': item.responsavel || '-',
-                'Status': 'PENDENTE',
-                'Data/Hora Devolução': '-',                'Conferido por': app.currentUser.name
+            app.auditSession.pending.forEach(item => {
+                data.push({
+                    'Código': item.codigo,
+                    'Descrição': item.descricao,
+                    'Categoria': item.categoria,
+                    'Responsável Original': item.responsavel || '-',
+                    'Status': 'PENDENTE',
+                    'Data/Hora Devolução': '-',
+                    'Conferido por': app.currentUser.name
+                });
             });
-        });
 
-        if (data.length === 0) {
-            alert('Nenhum dado para gerar relatório.');
-            return;
+            if (data.length === 0) {
+                alert('Nenhum dado para gerar relatório.');
+                return;
+            }
+
+            const nomeArquivo = `Conferencia_Devolucao_${app.currentInstituicao?.nome || 'inventário'}_${new Date().toISOString().split('T')[0]}`;
+
+            if (format === '3') {
+                utils.exportCSVReport(data, nomeArquivo);
+            } else if (format === '2') {
+                utils.exportXLSX(data, nomeArquivo, titulo, app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
+            } else if (format === '1') {
+                utils.exportPDFReport(data, nomeArquivo, titulo, app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
+            }
+
+            alert(`✅ Relatório gerado!\n\nDevolvidos: ${app.auditSession.returned.length}\nPendentes: ${app.auditSession.pending.length}`);
+        } catch (error) {
+            console.error('Erro ao gerar relatório:', error);
+            alert('Erro ao gerar relatório: ' + error.message);
         }
-
-        const nomeArquivo = `Conferencia_Devolucao_${app.currentInstituicao?.nome || 'inventário'}_${new Date().toISOString().split('T')[0]}`;
-
-        if (format === '3') {
-            utils.exportCSVReport(data, nomeArquivo);
-        } else if (format === '2') {
-            utils.exportXLSX(data, nomeArquivo, titulo, app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
-        } else if (format === '1') {
-            utils.exportPDFReport(data, nomeArquivo, titulo, app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
-        }
-
-        alert(`✅ Relatório gerado!\n\nDevolvidos: ${app.auditSession.returned.length}\nPendentes: ${app.auditSession.pending.length}`);
     },
 
     resetAudit: () => {
