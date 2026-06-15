@@ -90,7 +90,7 @@ const app = {
                 app.isLoggedIn = false; app.currentUser = null; app.currentInstituicao = null;
                 localStorage.removeItem('sessionData');
                 const b = document.getElementById('btn-login-toggle'); if (b) b.textContent = '';
-                app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
+                app.issions({ canCreate: false, canSync: false, canManageUsers: false });
                 app.showLoginScreen();
             }
         } else app.openLoginModal();
@@ -160,14 +160,33 @@ const app = {
 
     closeLogin: () => { document.getElementById('login-modal').classList.add('hidden'); },
 
-    applyPermissions: (p) => {
-        const s = (id, v) => { const e = document.getElementById(id); if (e) e.style.display = v ? 'block' : 'none'; };
-        s('btn-user-management', p.canManageUsers); s('btn-instituicao-management', p.canManageUsers);
-        const rb = document.getElementById('btn-reports'); if (rb) { if (p.canManageUsers) { rb.classList.remove('hidden'); rb.style.display = 'block'; } else { rb.classList.add('hidden'); rb.style.display = 'none'; } }
-        const ab = document.getElementById('btn-audit'); if (ab) { if (p.canCreate) { ab.classList.remove('hidden'); ab.style.display = 'block'; } else { ab.classList.add('hidden'); ab.style.display = 'none'; } }
-        const addB = document.querySelector('button[onclick="app.navigate(\'add\')"]'); if (addB) addB.style.display = p.canCreate ? 'block' : 'none';
-        const syncB = document.querySelector('button[onclick="sync.runSync()"]'); if (syncB) syncB.style.display = p.canSync ? 'block' : 'none';
-        const prB = document.querySelector('button[onclick="app.printLabels()"]'); if (prB) prB.style.display = p.canCreate ? 'block' : 'none';
+        applyPermissions: (p) => {
+        // Usa classList em vez de style.display para evitar conflito com Tailwind
+        const toggle = (id, show) => { 
+            const e = document.getElementById(id); 
+            if (e) {
+                if (show) { e.classList.remove('hidden'); e.style.display = 'block'; }
+                else { e.classList.add('hidden'); e.style.display = 'none'; }
+            }
+        };
+        
+        toggle('btn-user-management', p.canManageUsers);
+        toggle('btn-instituicao-management', p.canManageUsers);
+        
+        const rb = document.getElementById('btn-reports');
+        if (rb) { if (p.canManageUsers) { rb.classList.remove('hidden'); rb.style.display = 'block'; } else { rb.classList.add('hidden'); rb.style.display = 'none'; } }
+        
+        const ab = document.getElementById('btn-audit');
+        if (ab) { if (p.canCreate) { ab.classList.remove('hidden'); ab.style.display = 'block'; } else { ab.classList.add('hidden'); ab.style.display = 'none'; } }
+        
+        const addB = document.querySelector('button[onclick="app.navigate(\'add\')"]');
+        if (addB) { if (p.canCreate) { addB.classList.remove('hidden'); addB.style.display = 'block'; } else { addB.classList.add('hidden'); addB.style.display = 'none'; } }
+        
+        const syncB = document.querySelector('button[onclick="sync.runSync()"]');
+        if (syncB) { if (p.canSync) { syncB.classList.remove('hidden'); syncB.style.display = 'block'; } else { syncB.classList.add('hidden'); syncB.style.display = 'none'; } }
+        
+        const prB = document.querySelector('button[onclick="app.printLabels()"]');
+        if (prB) { if (p.canCreate) { prB.classList.remove('hidden'); prB.style.display = 'block'; } else { prB.classList.add('hidden'); prB.style.display = 'none'; } }
     },
 
     saveItem: async (e) => {
