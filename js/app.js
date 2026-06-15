@@ -47,7 +47,8 @@ const app = {
     },
 
     showLoginScreen: () => {
-        document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));        const loginView = document.getElementById('view-login-required');
+        document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
+        const loginView = document.getElementById('view-login-required');
         if (loginView) loginView.classList.remove('hidden');
     },
 
@@ -79,7 +80,11 @@ const app = {
 
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
         const target = document.getElementById(`view-${viewId}`);
-        if (target) target.classList.remove('hidden');
+        if (target) {
+            target.classList.remove('hidden');
+        } else {
+            alert('ERRO: View não encontrada: view-' + viewId);
+        }
         
         if (viewId === 'dashboard') {
             app.renderList();
@@ -96,7 +101,8 @@ const app = {
     generateCode: () => {
         const year = new Date().getFullYear();
         const random = Math.floor(10000 + Math.random() * 90000);
-        return `FDSF-${year}-${random}`;    },
+        return `FDSF-${year}-${random}`;
+    },
 
     updateInstituicaoDisplay: () => {
         const display = document.getElementById('current-instituicao-display');
@@ -145,7 +151,8 @@ const app = {
 
             const usuarios = app.users.getAll();
             const selectUser = document.getElementById('login-user-select');
-            if (selectUser) {                selectUser.innerHTML = '<option value="">-- Selecione seu usuário --</option>';
+            if (selectUser) {
+                selectUser.innerHTML = '<option value="">-- Selecione seu usuário --</option>';
                 usuarios.forEach(user => {
                     const option = document.createElement('option');
                     option.value = user.username;
@@ -160,8 +167,7 @@ const app = {
             const modal = document.getElementById('login-modal');
             if (modal) modal.classList.remove('hidden');
         } catch (error) {
-            console.error('Erro ao abrir modal de login:', error);
-            alert('Erro ao abrir tela de login.');
+            alert('Erro ao abrir tela de login: ' + error.message);
         }
     },
 
@@ -194,7 +200,8 @@ const app = {
         app.navigate('dashboard');
         app.updateDashboard();
         app.updateInstituicaoDisplay();
-                const hora = new Date().getHours();
+        
+        const hora = new Date().getHours();
         let saudacao = 'Olá';
         if (hora < 12) saudacao = 'Bom dia';
         else if (hora < 18) saudacao = 'Boa tarde';
@@ -207,44 +214,44 @@ const app = {
 
     closeLogin: () => { document.getElementById('login-modal').classList.add('hidden'); },
 
-   applyPermissions: (perms) => {
-    const addBtn = document.querySelector('button[onclick="app.navigate(\'add\')"]');
-    if (addBtn) addBtn.style.display = perms.canCreate ? 'block' : 'none';
-    
-    const syncBtn = document.querySelector('button[onclick="sync.runSync()"]');
-    if (syncBtn) syncBtn.style.display = perms.canSync ? 'block' : 'none';
-    
-    const userMgmtBtn = document.getElementById('btn-user-management');
-    if (userMgmtBtn) userMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
+    applyPermissions: (perms) => {
+        const addBtn = document.querySelector('button[onclick="app.navigate(\'add\')"]');
+        if (addBtn) addBtn.style.display = perms.canCreate ? 'block' : 'none';
+        
+        const syncBtn = document.querySelector('button[onclick="sync.runSync()"]');
+        if (syncBtn) syncBtn.style.display = perms.canSync ? 'block' : 'none';
+        
+        const userMgmtBtn = document.getElementById('btn-user-management');
+        if (userMgmtBtn) userMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
 
-    const instMgmtBtn = document.getElementById('btn-instituicao-management');
-    if (instMgmtBtn) instMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
+        const instMgmtBtn = document.getElementById('btn-instituicao-management');
+        if (instMgmtBtn) instMgmtBtn.style.display = perms.canManageUsers ? 'block' : 'none';
 
-    const printBtn = document.querySelector('button[onclick="app.printLabels()"]');
-    if (printBtn) printBtn.style.display = perms.canCreate ? 'block' : 'none';
+        const printBtn = document.querySelector('button[onclick="app.printLabels()"]');
+        if (printBtn) printBtn.style.display = perms.canCreate ? 'block' : 'none';
 
-    const reportsBtn = document.getElementById('btn-reports');
-    if (reportsBtn) {
-        if (perms.canManageUsers) {
-            reportsBtn.classList.remove('hidden');
-            reportsBtn.style.display = 'block';
-        } else {
-            reportsBtn.classList.add('hidden');
-            reportsBtn.style.display = 'none';
+        const reportsBtn = document.getElementById('btn-reports');
+        if (reportsBtn) {
+            if (perms.canManageUsers) {
+                reportsBtn.classList.remove('hidden');
+                reportsBtn.style.display = 'block';
+            } else {
+                reportsBtn.classList.add('hidden');
+                reportsBtn.style.display = 'none';
+            }
         }
-    }
 
-    const auditBtn = document.getElementById('btn-audit');
-    if (auditBtn) {
-        if (perms.canCreate) {
-            auditBtn.classList.remove('hidden');
-            auditBtn.style.display = 'block';
-        } else {
-            auditBtn.classList.add('hidden');
-            auditBtn.style.display = 'none';
+        const auditBtn = document.getElementById('btn-audit');
+        if (auditBtn) {
+            if (perms.canCreate) {
+                auditBtn.classList.remove('hidden');
+                auditBtn.style.display = 'block';
+            } else {
+                auditBtn.classList.add('hidden');
+                auditBtn.style.display = 'none';
+            }
         }
-    }
-},
+    },
 
     saveItem: async (e) => {
         e.preventDefault();
@@ -260,6 +267,7 @@ const app = {
         } else {
             if (!confirm('Você não adicionou uma foto. Deseja continuar mesmo assim?')) return;
         }
+
         const item = {
             codigo: document.getElementById('item-codigo').value,
             categoria: document.getElementById('item-categoria').value,
@@ -308,7 +316,8 @@ const app = {
                     <span class="text-xs px-2 py-1 rounded bg-gray-200">${item.status}</span>
                 </div>
             `;
-            container.appendChild(div);        });
+            container.appendChild(div);
+        });
     },
 
     filterItems: () => { app.renderList(); },
@@ -357,7 +366,8 @@ const app = {
             <div class="mt-4">
                 <h4 class="font-bold text-sm mb-2">Histórico</h4>
                 <ul class="space-y-1">${historicoHtml}</ul>
-            </div>        `;
+            </div>
+        `;
 
         setTimeout(() => {
             const qrContainer = document.getElementById("detail-qrcode");
@@ -406,7 +416,8 @@ const app = {
             responsavel = prompt('Nome do responsável:') || responsavel;
             obs = prompt('Previsão de devolução:') || '-';
         } else if (newStatus === 'Manutenção') {
-            obs = prompt('Motivo / Nº OS:') || '-';        }
+            obs = prompt('Motivo / Nº OS:') || '-';
+        }
         app.currentItem.status = newStatus;
         app.currentItem.responsavel = responsavel;
         app.currentItem.historico.push(`${newStatus} em ${new Date().toLocaleString()} por ${responsavel}. Obs: ${obs}`);
@@ -455,7 +466,8 @@ const app = {
         app.currentItem.foto = fotoBase64;
         app.currentItem.historico.push(`Editado em ${new Date().toLocaleString()} por ${app.currentUser.name}`);
         await db.save(app.currentItem);
-        alert('Item atualizado!');        document.getElementById('edit-item-modal').classList.add('hidden');
+        alert('Item atualizado!');
+        document.getElementById('edit-item-modal').classList.add('hidden');
         app.renderDetail(app.currentItem.codigo);
         app.renderList();
     },
@@ -504,7 +516,8 @@ const app = {
         app.scanner = new Html5Qrcode("reader");
         app.scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
             async (decodedText) => {
-                app.stopScanner();                if (!app.isLoggedIn) { alert(`Código: ${decodedText}\n(Faça login para ver detalhes)`); app.navigate('dashboard'); }
+                app.stopScanner();
+                if (!app.isLoggedIn) { alert(`Código: ${decodedText}\n(Faça login para ver detalhes)`); app.navigate('dashboard'); }
                 else {
                     const item = await db.get(decodedText);
                     if (item) app.renderDetail(decodedText);
@@ -544,39 +557,40 @@ const app = {
         }
     },
 
-       // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO =====
+    // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO (COM DIAGNÓSTICO) =====
     
     startAudit: async () => {
+        alert('🔍 Passo 1: Botão clicado com sucesso!');
+        
+        if (!app.isLoggedIn) {
+            alert('❌ Erro: Usuário não está logado');
+            app.navigate('dashboard');
+            return;
+        }
+        alert('✅ Passo 2: Usuário logado: ' + app.currentUser.name);
+
+        if (!app.currentInstituicao) {
+            alert('❌ Erro: Nenhuma instituição selecionada');
+            app.navigate('dashboard');
+            return;
+        }
+        alert('✅ Passo 3: Instituição: ' + app.currentInstituicao.nome);
+
         try {
-            console.log('Iniciando conferência de devolução...');
-            
-            if (!app.isLoggedIn) {
-                alert('Faça login para iniciar conferência');
-                app.navigate('dashboard');
-                return;
-            }
-
-            if (!app.currentInstituicao) {
-                alert('Selecione uma instituição primeiro');
-                app.navigate('dashboard');
-                return;
-            }
-
-            console.log('Carregando itens emprestados...');
             const allItems = await db.getAll(app.currentInstituicao.id);
+            alert('✅ Passo 4: Total de itens carregados: ' + allItems.length);
+            
             const emprestados = allItems.filter(i => i.status === 'Emprestado');
-
-            console.log(`Encontrados ${emprestados.length} itens emprestados`);
+            alert('✅ Passo 5: Itens emprestados encontrados: ' + emprestados.length);
 
             if (emprestados.length === 0) {
-                const continuar = confirm('Não há itens emprestados no momento.\n\nDeseja iniciar uma conferência mesmo assim? (Útil para conferir itens que serão emprestados)');
+                const continuar = confirm('Não há itens emprestados no momento.\n\nDeseja iniciar uma conferência mesmo assim?');
                 if (!continuar) {
                     app.navigate('dashboard');
                     return;
                 }
             }
 
-            // Inicializa sessão de auditoria
             app.auditSession = {
                 pending: emprestados.map(i => ({
                     codigo: i.codigo,
@@ -588,24 +602,16 @@ const app = {
                 startTime: new Date().toISOString()
             };
 
-            console.log('Sessão de auditoria inicializada:', app.auditSession);
-            console.log('Navegando para view audit...');
-
-            // Navega para a view de auditoria
+            alert('✅ Passo 6: Sessão criada. Navegando para tela de auditoria...');
             app.navigate('audit');
-            
-            console.log('Conferência iniciada com sucesso');
+            alert('✅ Passo 7: Conferência iniciada!');
         } catch (error) {
-            console.error('Erro ao iniciar conferência:', error);
-            alert('Erro ao iniciar conferência: ' + error.message);
+            alert(' ERRO: ' + error.message);
         }
     },
 
     renderAudit: () => {
         try {
-            console.log('Renderizando view de auditoria...');
-            
-            // Atualiza estatísticas
             const pendentesEl = document.getElementById('audit-pendentes');
             const devolvidosEl = document.getElementById('audit-devolvidos');
             const totalEl = document.getElementById('audit-total');
@@ -614,7 +620,6 @@ const app = {
             if (devolvidosEl) devolvidosEl.textContent = app.auditSession.returned.length;
             if (totalEl) totalEl.textContent = app.auditSession.pending.length + app.auditSession.returned.length;
 
-            // Lista de pendentes
             const pendingContainer = document.getElementById('audit-pending-list');
             if (pendingContainer) {
                 if (app.auditSession.pending.length === 0) {
@@ -630,7 +635,6 @@ const app = {
                 }
             }
 
-            // Lista de devolvidos
             const returnedContainer = document.getElementById('audit-returned-list');
             if (returnedContainer) {
                 if (app.auditSession.returned.length === 0) {
@@ -645,17 +649,13 @@ const app = {
                     `).join('');
                 }
             }
-            
-            console.log('View de auditoria renderizada com sucesso');
         } catch (error) {
-            console.error('Erro ao renderizar auditoria:', error);
+            alert('Erro ao renderizar auditoria: ' + error.message);
         }
     },
 
     startAuditScanner: () => {
         try {
-            console.log('Iniciando scanner de auditoria...');
-            
             const container = document.getElementById('audit-reader-container');
             if (container) container.classList.remove('hidden');
 
@@ -668,14 +668,10 @@ const app = {
                 },
                 () => { }
             ).catch(err => {
-                console.error('Erro ao iniciar scanner:', err);
                 alert('Erro ao iniciar câmera: ' + err);
                 app.stopAuditScanner();
             });
-            
-            console.log('Scanner iniciado');
         } catch (error) {
-            console.error('Erro ao iniciar scanner:', error);
             alert('Erro ao iniciar scanner: ' + error.message);
         }
     },
@@ -691,12 +687,10 @@ const app = {
 
     processAuditScan: async (codigo) => {
         try {
-            console.log('Processando scan:', codigo);
-            
             const item = await db.get(codigo);
             
             if (!item) {
-                alert(`❌ Item ${codigo} não encontrado no banco de dados.`);
+                alert(`❌ Item ${codigo} não encontrado.`);
                 return;
             }
 
@@ -705,20 +699,19 @@ const app = {
             if (pendingIndex === -1) {
                 const alreadyReturned = app.auditSession.returned.find(r => r.codigo === codigo);
                 if (alreadyReturned) {
-                    alert(`⚠️ Item ${codigo} já foi marcado como devolvido nesta sessão.`);
+                    alert(`️ Item ${codigo} já foi devolvido nesta sessão.`);
                 } else {
-                    alert(`⚠️ Item ${codigo} não está na lista de pendentes (pode já estar como Ativo).`);
+                    alert(`⚠️ Item ${codigo} não está na lista de pendentes.`);
                 }
                 return;
             }
 
             const itemInfo = app.auditSession.pending[pendingIndex];
-            const confirmar = confirm(`✅ Confirmar devolução?\n\n${itemInfo.codigo}\n${itemInfo.descricao}\nResponsável: ${itemInfo.responsavel || 'N/A'}`);
-            
-            if (!confirmar) return;
+            if (!confirm(`✅ Confirmar devolução?\n\n${itemInfo.codigo}\n${itemInfo.descricao}\nResponsável: ${itemInfo.responsavel || 'N/A'}`)) {
+                return;
+            }
 
-            const now = new Date();
-            const dataDevolucao = now.toLocaleString('pt-BR');
+            const dataDevolucao = new Date().toLocaleString('pt-BR');
             
             item.status = 'Ativo';
             item.historico.push(`Devolvido em ${dataDevolucao} por ${app.currentUser.name} (Conferência)`);
@@ -737,20 +730,17 @@ const app = {
 
             if (navigator.vibrate) navigator.vibrate(200);
 
-            alert(`✅ Item devolvido com sucesso!\n\n${itemInfo.codigo}\n${itemInfo.descricao}`);
+            alert(`✅ Item devolvido!\n\n${itemInfo.codigo}\n${itemInfo.descricao}`);
 
             app.renderAudit();
             app.updateDashboard();
 
             if (app.auditSession.pending.length === 0) {
                 setTimeout(() => {
-                    alert('🎉 Todos os itens foram devolvidos!\n\nVocê pode gerar o relatório de conferência.');
+                    alert('🎉 Todos os itens foram devolvidos!');
                 }, 500);
             }
-            
-            console.log('Scan processado com sucesso');
         } catch (error) {
-            console.error('Erro ao processar scan:', error);
             alert('Erro ao processar scan: ' + error.message);
         }
     },
@@ -762,17 +752,14 @@ const app = {
                 return;
             }
 
-            const format = prompt('Escolha o formato do relatório:\n\n1 - PDF\n2 - XLSX (Excel)\n3 - CSV\n\nDigite o número:', '1');
-            
+            const format = prompt('Escolha o formato:\n\n1 - PDF\n2 - XLSX\n3 - CSV', '1');
             if (!['1', '2', '3'].includes(format)) {
                 alert('Formato inválido.');
                 return;
             }
 
             const dataGeracao = new Date().toLocaleString('pt-BR');
-            
             let data = [];
-            let titulo = 'Relatório de Conferência de Devolução';
 
             app.auditSession.returned.forEach(item => {
                 data.push({
@@ -803,27 +790,20 @@ const app = {
                 return;
             }
 
-            const nomeArquivo = `Conferencia_Devolucao_${app.currentInstituicao?.nome || 'inventário'}_${new Date().toISOString().split('T')[0]}`;
+            const nomeArquivo = `Conferencia_${new Date().toISOString().split('T')[0]}`;
 
-            if (format === '3') {
-                utils.exportCSVReport(data, nomeArquivo);
-            } else if (format === '2') {
-                utils.exportXLSX(data, nomeArquivo, titulo, app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
-            } else if (format === '1') {
-                utils.exportPDFReport(data, nomeArquivo, titulo, app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
-            }
+            if (format === '3') utils.exportCSVReport(data, nomeArquivo);
+            else if (format === '2') utils.exportXLSX(data, nomeArquivo, 'Conferência', app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
+            else if (format === '1') utils.exportPDFReport(data, nomeArquivo, 'Conferência', app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
 
-            alert(`✅ Relatório gerado!\n\nDevolvidos: ${app.auditSession.returned.length}\nPendentes: ${app.auditSession.pending.length}`);
+            alert(`✅ Relatório gerado!\nDevolvidos: ${app.auditSession.returned.length}\nPendentes: ${app.auditSession.pending.length}`);
         } catch (error) {
-            console.error('Erro ao gerar relatório:', error);
             alert('Erro ao gerar relatório: ' + error.message);
         }
     },
 
     resetAudit: () => {
-        if (!confirm('Iniciar nova conferência?\n\nA sessão atual será encerrada.')) {
-            return;
-        }
+        if (!confirm('Iniciar nova conferência?')) return;
         app.startAudit();
     },
 
@@ -839,14 +819,15 @@ const app = {
         }
 
         const reports = [
-            { id: 'completo', icon: '📋', title: 'Inventário Completo', description: 'Lista todos os itens', color: 'blue' },
-            { id: 'emprestados', icon: '', title: 'Itens Emprestados', description: 'Itens emprestados', color: 'yellow' },
+            { id: 'completo', icon: '', title: 'Inventário Completo', description: 'Lista todos os itens', color: 'blue' },
+            { id: 'emprestados', icon: '📤', title: 'Itens Emprestados', description: 'Itens emprestados', color: 'yellow' },
             { id: 'manutencao', icon: '🔧', title: 'Itens em Manutenção', description: 'Status manutenção', color: 'orange' },
             { id: 'baixados', icon: '🗑️', title: 'Itens Baixados', description: 'Itens retirados', color: 'red' },
-            { id: 'observacoes', icon: '', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
+            { id: 'observacoes', icon: '📝', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
             { id: 'categorias', icon: '📊', title: 'Resumo por Categoria', description: 'Quantitativo por categoria', color: 'purple' },
             { id: 'historico', icon: '📜', title: 'Histórico', description: 'Log de alterações', color: 'indigo' }
         ];
+
         const container = document.getElementById('reports-list');
         if (!container) return;
         container.innerHTML = '';
@@ -896,7 +877,8 @@ const app = {
                 data = items.filter(i => i.status === 'Manutenção').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao, 'Responsável': i.responsavel || '-' }));
                 if (data.length === 0) { alert('Nenhum item em manutenção.'); return; }
                 break;
-            case 'baixados':                titulo = 'Itens Baixados';
+            case 'baixados':
+                titulo = 'Itens Baixados';
                 data = items.filter(i => i.status === 'Baixado').map(i => ({ 'Código': i.codigo, 'Categoria': i.categoria, 'Descrição': i.descricao }));
                 if (data.length === 0) { alert('Nenhum item baixado.'); return; }
                 break;
@@ -945,7 +927,8 @@ const app = {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
         app.users.init();
         const users = app.users.getAll();
-        const container = document.getElementById('users-list');        if (!container) return;
+        const container = document.getElementById('users-list');
+        if (!container) return;
         container.innerHTML = '';
         users.forEach(user => {
             const div = document.createElement('div');
@@ -994,7 +977,8 @@ const app = {
             alert(`Nível alterado para: ${app.accessLevels[newLevel].name}`);
         }
         if (confirm('Deseja alterar a senha?')) {
-            const newPassword = prompt('Nova senha:');            if (newPassword && newPassword.trim()) {
+            const newPassword = prompt('Nova senha:');
+            if (newPassword && newPassword.trim()) {
                 user.password = newPassword.trim();
                 app.users.create(user);
                 alert('Senha alterada!');
@@ -1043,7 +1027,8 @@ const app = {
         app.instituicoes.create({ nome, cidade });
         alert(`Unidade criada!\n\n${nome}${cidade ? ' - ' + cidade : ''}`);
         document.getElementById('new-inst-nome').value = '';
-        document.getElementById('new-inst-cidade').value = '';        app.openInstituicaoManagement();
+        document.getElementById('new-inst-cidade').value = '';
+        app.openInstituicaoManagement();
     },
 
     deleteInstituicao: (id) => {
@@ -1092,7 +1077,8 @@ const app = {
             return instituicoes;
         },
         get: (id) => { const data = localStorage.getItem(`inst_${id}`); return data ? JSON.parse(data) : null; },
-        delete: (id) => { if (id === 'default') { alert('Não pode excluir a unidade padrão'); return; } localStorage.removeItem(`inst_${id}`); }    },
+        delete: (id) => { if (id === 'default') { alert('Não pode excluir a unidade padrão'); return; } localStorage.removeItem(`inst_${id}`); }
+    },
 
     accessLevels: {
         admin: { name: 'Administrador', canCreate: true, canEdit: true, canDelete: true, canBorrow: true, canMaintenance: true, canSync: true, canManageUsers: true },
