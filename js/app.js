@@ -18,7 +18,6 @@ const app = {
                 if (user && session.instituicao) {
                     app.isLoggedIn = true; app.currentUser = user; app.currentInstituicao = session.instituicao;
                     document.getElementById('btn-login-toggle').textContent = `🔓 ${user.nome || user.name}`;
-                    app.applyPermissions(app.accessLevels[user.nivel || user.level]);
                 }
             } catch (e) { localStorage.removeItem('sessionData'); }
         }
@@ -68,11 +67,35 @@ const app = {
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
         const t = document.getElementById(`view-${viewId}`);
         if (t) t.classList.remove('hidden');
-        if (viewId === 'dashboard') { app.renderList(); app.updateInstituicaoDisplay(); }
+        if (viewId === 'dashboard') { app.renderList(); app.updateInstituicaoDisplay(); app.showAdminButtons(); }
         if (viewId === 'add') document.getElementById('item-codigo').value = app.generateCode();
         if (viewId === 'scanner') app.startScanner();
         if (viewId === 'audit') app.renderAudit();
         if (viewId === 'reports') app.renderReports();
+    },
+
+    // NOVA FUNÇÃO: Mostra botões de admin no dashboard
+    showAdminButtons: () => {
+        const userLevel = app.currentUser?.nivel || app.currentUser?.level;
+        const isAdmin = userLevel === 'admin';
+        
+        const btnUsers = document.getElementById('btn-users-dashboard');
+        if (btnUsers) {
+            if (isAdmin) { btnUsers.classList.remove('hidden'); btnUsers.style.display = 'block'; }
+            else { btnUsers.classList.add('hidden'); btnUsers.style.display = 'none'; }
+        }
+        
+        const btnReports = document.getElementById('btn-reports');
+        if (btnReports) {
+            if (isAdmin) { btnReports.classList.remove('hidden'); btnReports.style.display = 'block'; }
+            else { btnReports.classList.add('hidden'); btnReports.style.display = 'none'; }
+        }
+        
+        const btnAudit = document.getElementById('btn-audit');
+        if (btnAudit) {
+            if (app.currentUser) { btnAudit.classList.remove('hidden'); btnAudit.style.display = 'block'; }
+            else { btnAudit.classList.add('hidden'); btnAudit.style.display = 'none'; }
+        }
     },
 
     generateCode: () => `FDSF-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -90,7 +113,6 @@ const app = {
                 app.isLoggedIn = false; app.currentUser = null; app.currentInstituicao = null;
                 localStorage.removeItem('sessionData');
                 const b = document.getElementById('btn-login-toggle'); if (b) b.textContent = '';
-                app.applyPermissions({ canCreate: false, canSync: false, canManageUsers: false });
                 app.showLoginScreen();
             }
         } else app.openLoginModal();
@@ -109,7 +131,7 @@ const app = {
             if (sUser) {
                 sUser.innerHTML = '<option value="">-- Selecione ou digite abaixo --</option>';
                 const adm = app.users.getLocal('admin');
-                if (adm) { const o = document.createElement('option'); o.value = 'admin'; o.textContent = `🔑 admin (Master)`; sUser.appendChild(o); }
+                if (adm) { const o = document.createElement('option'); o.value = 'admin'; o.textContent = ` admin (Master)`; sUser.appendChild(o); }
                 if (app.localUsers) {
                     app.localUsers.forEach(u => {
                         if (u.username !== 'admin') { const o = document.createElement('option'); o.value = u.username; o.textContent = `${u.nome || u.username} (${app.accessLevels[u.nivel || u.level]?.name || u.nivel})`; sUser.appendChild(o); }
@@ -150,37 +172,14 @@ const app = {
     completeLogin: (user, inst) => {
         app.isLoggedIn = true; app.currentUser = user; app.currentInstituicao = inst;
         localStorage.setItem('sessionData', JSON.stringify({ username: user.username, instituicao: inst }));
-        const b = document.getElementById('btn-login-toggle'); if (b) b.textContent = ` ${user.nome || user.name}`;
+        const b = document.getElementById('btn-login-toggle'); if (b) b.textContent = `🔓 ${user.nome || user.name}`;
         document.getElementById('login-modal').classList.add('hidden');
-        app.applyPermissions(app.accessLevels[user.nivel || user.level]);
         app.navigate('dashboard'); app.updateDashboard(); app.updateInstituicaoDisplay(); app.updateLogoDisplay();
         const h = new Date().getHours(); const s = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
         setTimeout(() => alert(`${s}, ${user.nome || user.name}!\n\nBem-vindo(a).\nUnidade: ${inst.nome}`), 300);
     },
 
     closeLogin: () => { document.getElementById('login-modal').classList.add('hidden'); },
-
-    applyPermissions: (p) => {
-        const toggle = (id, show) => { 
-            const e = document.getElementById(id); 
-            if (e) {
-                if (show) { e.classList.remove('hidden'); e.style.display = 'block'; }
-                else { e.classList.add('hidden'); e.style.display = 'none'; }
-            }
-        };
-        toggle('btn-user-management', p.canManageUsers);
-        toggle('btn-instituicao-management', p.canManageUsers);
-        const rb = document.getElementById('btn-reports');
-        if (rb) { if (p.canManageUsers) { rb.classList.remove('hidden'); rb.style.display = 'block'; } else { rb.classList.add('hidden'); rb.style.display = 'none'; } }
-        const ab = document.getElementById('btn-audit');
-        if (ab) { if (p.canCreate) { ab.classList.remove('hidden'); ab.style.display = 'block'; } else { ab.classList.add('hidden'); ab.style.display = 'none'; } }
-        const addB = document.querySelector('button[onclick="app.navigate(\'add\')"]');
-        if (addB) { if (p.canCreate) { addB.classList.remove('hidden'); addB.style.display = 'block'; } else { addB.classList.add('hidden'); addB.style.display = 'none'; } }
-        const syncB = document.querySelector('button[onclick="sync.runSync()"]');
-        if (syncB) { if (p.canSync) { syncB.classList.remove('hidden'); syncB.style.display = 'block'; } else { syncB.classList.add('hidden'); syncB.style.display = 'none'; } }
-        const prB = document.querySelector('button[onclick="app.printLabels()"]');
-        if (prB) { if (p.canCreate) { prB.classList.remove('hidden'); prB.style.display = 'block'; } else { prB.classList.add('hidden'); prB.style.display = 'none'; } }
-    },
 
     saveItem: async (e) => {
         e.preventDefault();
@@ -345,7 +344,7 @@ const app = {
         try {
             const i = await db.get(c); if (!i) { alert(`❌ ${c} não encontrado.`); return; }
             const idx = app.auditSession.pending.findIndex(p => p.codigo === c);
-            if (idx === -1) { if (app.auditSession.returned.find(r => r.codigo === c)) alert(`⚠️ ${c} já devolvido.`); else alert(`️ ${c} não está pendente.`); return; }
+            if (idx === -1) { if (app.auditSession.returned.find(r => r.codigo === c)) alert(`⚠️ ${c} já devolvido.`); else alert(`⚠️ ${c} não está pendente.`); return; }
             const info = app.auditSession.pending[idx];
             if (!confirm(`✅ Confirmar?\n${info.codigo}\n${info.descricao}${info.patrimonio ? '\nPat: ' + info.patrimonio : ''}\nResp: ${info.responsavel || 'N/A'}`)) return;
             const d = new Date().toLocaleString('pt-BR');
@@ -353,7 +352,7 @@ const app = {
             await db.save(i); app.auditSession.pending.splice(idx, 1); app.auditSession.returned.push({ ...info, returnedAt: d });
             if (navigator.vibrate) navigator.vibrate(200);
             alert(`✅ Devolvido!\n${info.codigo}\n${info.descricao}`); app.renderAudit(); app.updateDashboard();
-            if (!app.auditSession.pending.length) setTimeout(() => alert(' Todos devolvidos!'), 500);
+            if (!app.auditSession.pending.length) setTimeout(() => alert('🎉 Todos devolvidos!'), 500);
         } catch (e) { alert('Erro scan: ' + e.message); }
     },
 
@@ -377,9 +376,9 @@ const app = {
 
     renderReports: () => {
         if (!app.isLoggedIn || (app.currentUser.nivel || app.currentUser.level) !== 'admin') { alert('Apenas admins'); app.navigate('dashboard'); return; }
-        const r = [ { id: 'completo', icon: '📋', title: 'Completo', desc: 'Todos os itens', color: 'blue' }, { id: 'emprestados', icon: '', title: 'Emprestados', desc: 'Itens emprestados', color: 'yellow' }, { id: 'manutencao', icon: '', title: 'Manutenção', desc: 'Status manutenção', color: 'orange' }, { id: 'baixados', icon: '🗑️', title: 'Baixados', desc: 'Itens retirados', color: 'red' }, { id: 'observacoes', icon: '📝', title: 'Observações', desc: 'Pendências', color: 'amber' }, { id: 'categorias', icon: '📊', title: 'Por Categoria', desc: 'Quantitativo', color: 'purple' }, { id: 'historico', icon: '📜', title: 'Histórico', desc: 'Log alterações', color: 'indigo' } ];
+        const r = [ { id: 'completo', icon: '📋', title: 'Completo', desc: 'Todos os itens', color: 'blue' }, { id: 'emprestados', icon: '📤', title: 'Emprestados', desc: 'Itens emprestados', color: 'yellow' }, { id: 'manutencao', icon: '🔧', title: 'Manutenção', desc: 'Status manutenção', color: 'orange' }, { id: 'baixados', icon: '🗑️', title: 'Baixados', desc: 'Itens retirados', color: 'red' }, { id: 'observacoes', icon: '📝', title: 'Observações', desc: 'Pendências', color: 'amber' }, { id: 'categorias', icon: '📊', title: 'Por Categoria', desc: 'Quantitativo', color: 'purple' }, { id: 'historico', icon: '', title: 'Histórico', desc: 'Log alterações', color: 'indigo' } ];
         const c = document.getElementById('reports-list'); if (!c) return; c.innerHTML = '';
-        r.forEach(x => { const d = document.createElement('div'); d.className = 'bg-white p-4 rounded-lg shadow border-l-4 border-' + x.color + '-500'; d.innerHTML = `<div class="flex items-start gap-3 mb-3"><div class="text-3xl">${x.icon}</div><div class="flex-1"><h3 class="font-bold text-gray-800">${x.title}</h3><p class="text-xs text-gray-600 mt-1">${x.desc}</p></div></div><div class="flex gap-2"><button onclick="app.generateReport('${x.id}','pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold">📄 PDF</button><button onclick="app.generateReport('${x.id}','xlsx')" class="flex-1 bg-green-600 text-white text-xs py-2 rounded font-bold">📊 XLSX</button><button onclick="app.generateReport('${x.id}','csv')" class="flex-1 bg-blue-600 text-white text-xs py-2 rounded font-bold">📝 CSV</button></div>`; c.appendChild(d); });
+        r.forEach(x => { const d = document.createElement('div'); d.className = 'bg-white p-4 rounded-lg shadow border-l-4 border-' + x.color + '-500'; d.innerHTML = `<div class="flex items-start gap-3 mb-3"><div class="text-3xl">${x.icon}</div><div class="flex-1"><h3 class="font-bold text-gray-800">${x.title}</h3><p class="text-xs text-gray-600 mt-1">${x.desc}</p></div></div><div class="flex gap-2"><button onclick="app.generateReport('${x.id}','pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold"> PDF</button><button onclick="app.generateReport('${x.id}','xlsx')" class="flex-1 bg-green-600 text-white text-xs py-2 rounded font-bold">📊 XLSX</button><button onclick="app.generateReport('${x.id}','csv')" class="flex-1 bg-blue-600 text-white text-xs py-2 rounded font-bold"> CSV</button></div>`; c.appendChild(d); });
     },
 
     generateReport: async (rid, fmt) => {
@@ -402,14 +401,14 @@ const app = {
         alert(`✅ "${t}" gerado!\n${d.length} registros em ${fmt.toUpperCase()}`);
     },
 
-    // ===== FUNÇÕES DIRECT (SEM DEPENDÊNCIA DE PERMISSÕES) =====
+    // ===== FUNÇÕES DE USUÁRIOS (SIMPLIFICADAS) =====
     
     openUserManagementDirect: () => {
         if (!app.isLoggedIn) { alert('❌ Faça login primeiro'); return; }
         
         const userLevel = app.currentUser?.nivel || app.currentUser?.level;
         if (userLevel !== 'admin') { 
-            alert(' Apenas administradores.\n\nSeu nível: ' + (userLevel || 'não definido')); 
+            alert('❌ Apenas administradores.\n\nSeu nível: ' + (userLevel || 'não definido')); 
             return; 
         }
         
@@ -458,7 +457,6 @@ const app = {
             app.localUsers.push(newUser);
             localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
             
-            // Tenta sincronizar com a nuvem (silenciosamente)
             try { await sync.syncUsers([newUser]); } catch(e) { console.log('Sync falhou, mas usuário criado localmente'); }
             
             alert(`✅ Usuário criado com sucesso!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level]?.name || level}`);
