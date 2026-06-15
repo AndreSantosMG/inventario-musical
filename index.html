@@ -25,7 +25,7 @@
             <div class="flex gap-2">
                 <button onclick="app.navigate('scanner')" class="p-2 bg-blue-700 rounded">📷</button>
                 <button id="btn-login-toggle" onclick="app.toggleLogin()" class="p-2 bg-blue-700 rounded"></button>
-                <button id="btn-user-management" onclick="app.openUserManagementDirect()" class="p-2 bg-blue-700 rounded">👥</button>
+                <button id="btn-user-management" onclick="app.openUserManagementDirect()" class="p-2 bg-blue-700 rounded hidden">👥</button>
                 <button id="btn-instituicao-management" onclick="app.openInstituicaoManagement()" class="p-2 bg-blue-700 rounded hidden">🏫</button>
             </div>
         </header>
@@ -47,7 +47,8 @@
                 <div class="grid grid-cols-2 gap-4 mb-6">
                     <div class="bg-blue-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-total">0</p><p class="text-sm">Total</p></div>
                     <div class="bg-yellow-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-emprestados">0</p><p class="text-sm">Emprestados</p></div>
-                    <div class="bg-red-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-manutencao">0</p><p class="text-sm">Manutenção</p></div>                    <div class="bg-green-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-ativos">0</p><p class="text-sm">Ativos</p></div>
+                    <div class="bg-red-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-manutencao">0</p><p class="text-sm">Manutenção</p></div>
+                    <div class="bg-green-100 p-4 rounded-lg text-center"><p class="text-2xl font-bold" id="dash-ativos">0</p><p class="text-sm">Ativos</p></div>
                 </div>
                 <div class="flex gap-2 mb-4">
                     <input type="text" id="search-input" placeholder="Buscar..." class="flex-1 p-2 border rounded" oninput="app.filterItems()">
@@ -56,10 +57,10 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2 mb-4">
                     <button onclick="app.navigate('add')" class="bg-blue-600 text-white p-3 rounded-lg font-bold">+ Novo Item</button>
-                    <button onclick="app.printLabels()" class="bg-purple-600 text-white p-3 rounded-lg font-bold">🖨️ Etiquetas</button>
+                    <button onclick="app.printLabels()" class="bg-purple-600 text-white p-3 rounded-lg font-bold">️ Etiquetas</button>
                 </div>
                 <button id="btn-audit" onclick="app.startAudit()" class="hidden w-full bg-orange-600 text-white p-3 rounded-lg font-bold mb-4">🔍 Conferência de Devolução</button>
-                <button id="btn-reports" onclick="app.navigate('reports')" class="hidden w-full bg-indigo-600 text-white p-3 rounded-lg font-bold mb-4"> Relatórios Gerenciais</button>
+                <button id="btn-reports" onclick="app.navigate('reports')" class="hidden w-full bg-indigo-600 text-white p-3 rounded-lg font-bold mb-4">📊 Relatórios Gerenciais</button>
                 <div id="items-list" class="space-y-3"></div>
             </section>
 
@@ -96,7 +97,8 @@
                 <div id="detail-content" class="space-y-4"></div>
                 <div id="admin-actions" class="hidden mt-6 space-y-3">
                     <h3 class="font-bold border-b pb-2">Ações</h3>
-                    <button onclick="app.editItem()" class="w-full bg-blue-500 text-white p-2 rounded">Editar Item</button>                    <button onclick="app.updateStatus('Emprestado')" class="w-full bg-yellow-500 text-white p-2 rounded">Registrar Empréstimo</button>
+                    <button onclick="app.editItem()" class="w-full bg-blue-500 text-white p-2 rounded">Editar Item</button>
+                    <button onclick="app.updateStatus('Emprestado')" class="w-full bg-yellow-500 text-white p-2 rounded">Registrar Empréstimo</button>
                     <button onclick="app.updateStatus('Manutenção')" class="w-full bg-orange-500 text-white p-2 rounded">Registrar Manutenção</button>
                     <button onclick="app.updateStatus('Ativo')" class="w-full bg-green-500 text-white p-2 rounded">Marcar Ativo/Devolvido</button>
                     <button onclick="app.baixarItem()" class="w-full bg-red-600 text-white p-2 rounded">Dar Baixa</button>
@@ -106,7 +108,7 @@
 
             <section id="view-audit" class="view hidden">
                 <button onclick="app.stopAudit(); app.navigate('dashboard')" class="mb-4 text-blue-600">← Voltar</button>
-                <h2 class="text-xl font-bold mb-2">🔍 Conferência de Devolução</h2>
+                <h2 class="text-xl font-bold mb-2"> Conferência de Devolução</h2>
                 <p class="text-sm text-gray-600 mb-4">Escaneie os QR Codes para marcar como devolvidos</p>
                 <div class="grid grid-cols-3 gap-2 mb-4">
                     <div class="bg-yellow-100 p-3 rounded text-center"><p class="text-2xl font-bold text-yellow-700" id="audit-pendentes">0</p><p class="text-xs">Pendentes</p></div>
@@ -121,14 +123,14 @@
                 <div class="mb-4"><h3 class="font-bold text-sm mb-2">📋 Pendentes</h3><div id="audit-pending-list" class="space-y-2 max-h-64 overflow-y-auto"></div></div>
                 <div class="mb-4"><h3 class="font-bold text-sm mb-2">✅ Devolvidos</h3><div id="audit-returned-list" class="space-y-2 max-h-64 overflow-y-auto"></div></div>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="app.generateAuditReport()" class="bg-blue-600 text-white p-3 rounded-lg font-bold"> Relatório</button>
-                    <button onclick="app.resetAudit()" class="bg-gray-600 text-white p-3 rounded-lg font-bold"> Nova</button>
+                    <button onclick="app.generateAuditReport()" class="bg-blue-600 text-white p-3 rounded-lg font-bold">📄 Relatório</button>
+                    <button onclick="app.resetAudit()" class="bg-gray-600 text-white p-3 rounded-lg font-bold">🔄 Nova</button>
                 </div>
             </section>
 
             <section id="view-reports" class="view hidden">
                 <button onclick="app.navigate('dashboard')" class="mb-4 text-blue-600">← Voltar</button>
-                <h2 class="text-xl font-bold mb-2">📊 Relatórios Gerenciais</h2>
+                <h2 class="text-xl font-bold mb-2"> Relatórios Gerenciais</h2>
                 <div id="reports-list" class="space-y-3"></div>
             </section>
 
@@ -145,7 +147,8 @@
                     <div class="p-4 bg-yellow-50 rounded border border-yellow-200"><p class="font-bold text-yellow-700">Atualização</p><button onclick="app.forceUpdate()" class="bg-yellow-600 text-white px-4 py-2 rounded w-full mt-2">🔄 Forçar Atualização</button></div>
                     <div class="p-4 bg-red-50 rounded border border-red-200"><p class="font-bold text-red-700">Zona de Perigo</p><button onclick="app.clearData()" class="bg-red-600 text-white px-4 py-2 rounded w-full mt-2">Limpar Tudo</button></div>
                 </div>
-            </section>        </main>
+            </section>
+        </main>
 
         <nav class="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 z-50">
             <button onclick="app.navigate('dashboard')" class="flex flex-col items-center text-blue-900"><span>🏠</span><span class="text-xs">Início</span></button>
@@ -194,7 +197,8 @@
             <div class="bg-white p-6 rounded-lg w-11/12 max-w-md max-h-[80vh] overflow-y-auto">
                 <h3 class="text-lg font-bold mb-4">Gerenciar Unidades</h3>
                 <div class="mb-4 p-3 bg-gray-50 rounded">
-                    <h4 class="font-bold text-sm mb-2">Nova Unidade</h4>                    <input type="text" id="new-inst-nome" placeholder="Nome da unidade" class="w-full p-2 border rounded mb-2">
+                    <h4 class="font-bold text-sm mb-2">Nova Unidade</h4>
+                    <input type="text" id="new-inst-nome" placeholder="Nome da unidade" class="w-full p-2 border rounded mb-2">
                     <input type="text" id="new-inst-cidade" placeholder="Cidade" class="w-full p-2 border rounded mb-2">
                     <label class="block text-sm font-medium mb-1">Logotipo (Opcional)</label>
                     <input type="file" id="new-inst-logo" accept="image/*" class="w-full p-2 border rounded mb-2">
@@ -243,6 +247,7 @@
     </script>
     <script src="js/db.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/sync.js"></script>    <script src="js/app.js"></script>
+    <script src="js/sync.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
