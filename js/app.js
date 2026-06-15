@@ -39,6 +39,7 @@ const app = {
             app.navigate('dashboard');
             app.updateDashboard();
             app.updateInstituicaoDisplay();
+            app.updateLogoDisplay();
         }
         
         if ('serviceWorker' in navigator) {
@@ -50,6 +51,34 @@ const app = {
         document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
         const loginView = document.getElementById('view-login-required');
         if (loginView) loginView.classList.remove('hidden');
+        app.updateLogoDisplay();
+    },
+
+    updateLogoDisplay: () => {
+        const headerLogo = document.getElementById('header-logo');
+        const loginLogo = document.getElementById('login-logo');
+        
+        if (app.currentInstituicao && app.currentInstituicao.logo) {
+            if (headerLogo) {
+                headerLogo.src = app.currentInstituicao.logo;
+                headerLogo.style.display = 'block';
+                headerLogo.classList.remove('hidden');
+            }
+            if (loginLogo) {
+                loginLogo.src = app.currentInstituicao.logo;
+                loginLogo.style.display = 'block';
+                loginLogo.classList.remove('hidden');
+            }
+        } else {
+            if (headerLogo) {
+                headerLogo.style.display = 'none';
+                headerLogo.classList.add('hidden');
+            }
+            if (loginLogo) {
+                loginLogo.style.display = 'none';
+                loginLogo.classList.add('hidden');
+            }
+        }
     },
 
     forceUpdate: () => {
@@ -200,6 +229,7 @@ const app = {
         app.navigate('dashboard');
         app.updateDashboard();
         app.updateInstituicaoDisplay();
+        app.updateLogoDisplay();
         
         const hora = new Date().getHours();
         let saudacao = 'Olá';
@@ -361,7 +391,7 @@ const app = {
             </div>
             <div class="bg-yellow-50 p-3 rounded mt-2 border border-yellow-200">
                 <div class="flex justify-between items-center mb-1">
-                    <p class="font-bold text-sm text-yellow-800">📝 Observações:</p>
+                    <p class="font-bold text-sm text-yellow-800"> Observações:</p>
                     <button id="btn-edit-obs" onclick="app.editObservation()" class="hidden text-xs bg-yellow-600 text-white px-3 py-1 rounded shadow">Editar</button>
                 </div>
                 <p id="detail-obs-text" class="text-sm text-gray-700 whitespace-pre-wrap">${obsText}</p>
@@ -524,7 +554,7 @@ const app = {
             const patrimonioLine = item.patrimonio ? `<div class="label-pat">Pat: ${item.patrimonio}</div>` : '';
             labelsHtml += `<div class="label"><img src="${qrUrl}" alt="QR Code" class="qr-img"><div class="label-text"><div class="label-code">${item.codigo}</div><div class="label-desc">${item.descricao}</div>${patrimonioLine}<div class="label-inst">${item.instituicaoNome || ''}</div></div></div>`;
         });
-        printWindow.document.write(`<html><head><title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }.container { display: flex; flex-wrap: wrap; gap: 15px; }.label { border: 1px dashed #ccc; padding: 10px; width: 180px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }.qr-img { width: 120px; height: 120px; margin-bottom: 8px; }.label-code { font-weight: bold; font-size: 12px; margin-bottom: 4px; }.label-desc { font-size: 10px; color: #555; word-wrap: break-word; }.label-pat { font-size: 9px; color: #1e40af; font-weight: bold; margin-top: 2px; }.label-inst { font-size: 9px; color: #888; margin-top: 4px; font-style: italic; }@media print { body { padding: 0; } .label { border: 1px solid #000; } .no-print { display: none; } }</style></head><body><div class="no-print" style="text-align:center; margin-bottom:20px;"><h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2><button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">🖨️ Imprimir Agora</button></div><div class="container">${labelsHtml}</div></body></html>`);
+        printWindow.document.write(`<html><head><title>Etiquetas - ${app.currentInstituicao?.nome || ''}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }.container { display: flex; flex-wrap: wrap; gap: 15px; }.label { border: 1px dashed #ccc; padding: 10px; width: 180px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }.qr-img { width: 120px; height: 120px; margin-bottom: 8px; }.label-code { font-weight: bold; font-size: 12px; margin-bottom: 4px; }.label-desc { font-size: 10px; color: #555; word-wrap: break-word; }.label-pat { font-size: 9px; color: #1e40af; font-weight: bold; margin-top: 2px; }.label-inst { font-size: 9px; color: #888; margin-top: 4px; font-style: italic; }@media print { body { padding: 0; } .label { border: 1px solid #000; } .no-print { display: none; } }</style></head><body><div class="no-print" style="text-align:center; margin-bottom:20px;"><h2>Etiquetas - ${app.currentInstituicao?.nome || ''} (${items.length} itens)</h2><button onclick="window.print()" style="padding:10px 20px; font-size:16px; cursor:pointer;">️ Imprimir Agora</button></div><div class="container">${labelsHtml}</div></body></html>`);
         printWindow.document.close();
     },
 
@@ -573,8 +603,6 @@ const app = {
         }
     },
 
-    // ===== SISTEMA DE CONFERÊNCIA DE DEVOLUÇÃO =====
-    
     startAudit: async () => {
         if (!app.isLoggedIn) {
             alert('Faça login para iniciar conferência');
@@ -804,8 +832,8 @@ const app = {
             const nomeArquivo = `Conferencia_${new Date().toISOString().split('T')[0]}`;
 
             if (format === '3') utils.exportCSVReport(data, nomeArquivo);
-            else if (format === '2') utils.exportXLSX(data, nomeArquivo, 'Conferência', app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
-            else if (format === '1') utils.exportPDFReport(data, nomeArquivo, 'Conferência', app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name);
+            else if (format === '2') utils.exportXLSX(data, nomeArquivo, 'Conferência', app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name, app.currentInstituicao?.logo);
+            else if (format === '1') utils.exportPDFReport(data, nomeArquivo, 'Conferência', app.currentInstituicao?.nome || '', dataGeracao, app.currentUser.name, app.currentInstituicao?.logo);
 
             alert(`✅ Relatório gerado!\nDevolvidos: ${app.auditSession.returned.length}\nPendentes: ${app.auditSession.pending.length}`);
         } catch (error) {
@@ -832,7 +860,7 @@ const app = {
         const reports = [
             { id: 'completo', icon: '📋', title: 'Inventário Completo', description: 'Lista todos os itens', color: 'blue' },
             { id: 'emprestados', icon: '📤', title: 'Itens Emprestados', description: 'Itens emprestados', color: 'yellow' },
-            { id: 'manutencao', icon: '🔧', title: 'Itens em Manutenção', description: 'Status manutenção', color: 'orange' },
+            { id: 'manutencao', icon: '', title: 'Itens em Manutenção', description: 'Status manutenção', color: 'orange' },
             { id: 'baixados', icon: '🗑️', title: 'Itens Baixados', description: 'Itens retirados', color: 'red' },
             { id: 'observacoes', icon: '📝', title: 'Itens com Observações', description: 'Observações pendentes', color: 'amber' },
             { id: 'categorias', icon: '📊', title: 'Resumo por Categoria', description: 'Quantitativo por categoria', color: 'purple' },
@@ -855,7 +883,7 @@ const app = {
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="app.generateReport('${report.id}', 'pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold"> PDF</button>
+                    <button onclick="app.generateReport('${report.id}', 'pdf')" class="flex-1 bg-red-600 text-white text-xs py-2 rounded font-bold">📄 PDF</button>
                     <button onclick="app.generateReport('${report.id}', 'xlsx')" class="flex-1 bg-green-600 text-white text-xs py-2 rounded font-bold">📊 XLSX</button>
                     <button onclick="app.generateReport('${report.id}', 'csv')" class="flex-1 bg-blue-600 text-white text-xs py-2 rounded font-bold">📝 CSV</button>
                 </div>
@@ -869,6 +897,7 @@ const app = {
         const instNome = app.currentInstituicao?.nome || 'Inventário';
         const dataGeracao = new Date().toLocaleString('pt-BR');
         const usuario = app.currentUser?.name || 'Sistema';
+        const logo = app.currentInstituicao?.logo || null;
 
         let data = [];
         let titulo = '';
@@ -972,8 +1001,8 @@ const app = {
         const nomeArquivo = `${titulo.replace(/\s+/g, '_')}_${app.currentInstituicao?.nome || 'inventário'}_${new Date().toISOString().split('T')[0]}`;
 
         if (format === 'csv') utils.exportCSVReport(data, nomeArquivo);
-        else if (format === 'xlsx') utils.exportXLSX(data, nomeArquivo, titulo, instNome, dataGeracao, usuario);
-        else if (format === 'pdf') utils.exportPDFReport(data, nomeArquivo, titulo, instNome, dataGeracao, usuario);
+        else if (format === 'xlsx') utils.exportXLSX(data, nomeArquivo, titulo, instNome, dataGeracao, usuario, logo);
+        else if (format === 'pdf') utils.exportPDFReport(data, nomeArquivo, titulo, instNome, dataGeracao, usuario, logo);
 
         alert(`✅ Relatório "${titulo}" gerado!\n\n${data.length} registros em ${format.toUpperCase()}`);
     },
@@ -1058,12 +1087,16 @@ const app = {
         if (!container) return;
         container.innerHTML = '';
         instituicoes.forEach(inst => {
+            const logoPreview = inst.logo ? `<img src="${inst.logo}" class="w-8 h-8 rounded mr-2">` : '';
             const div = document.createElement('div');
             div.className = 'flex justify-between items-center p-2 bg-gray-100 rounded';
             div.innerHTML = `
-                <div>
-                    <p class="font-bold">${inst.nome}</p>
-                    <p class="text-xs text-gray-600">${inst.cidade || 'Cidade não informada'}</p>
+                <div class="flex items-center">
+                    ${logoPreview}
+                    <div>
+                        <p class="font-bold">${inst.nome}</p>
+                        <p class="text-xs text-gray-600">${inst.cidade || 'Cidade não informada'}</p>
+                    </div>
                 </div>
                 ${inst.id !== 'default' ? `<button onclick="app.deleteInstituicao('${inst.id}')" class="text-red-600 text-sm">Excluir</button>` : ''}
             `;
@@ -1074,15 +1107,29 @@ const app = {
 
     closeInstituicaoManagement: () => { document.getElementById('instituicao-management-modal').classList.add('hidden'); },
 
-    createInstituicao: () => {
+    createInstituicao: async () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
         const nome = document.getElementById('new-inst-nome').value.trim();
         const cidade = document.getElementById('new-inst-cidade').value.trim();
+        const logoInput = document.getElementById('new-inst-logo');
+        
         if (!nome) { alert('Informe o nome'); return; }
-        app.instituicoes.create({ nome, cidade });
-        alert(`Unidade criada!\n\n${nome}${cidade ? ' - ' + cidade : ''}`);
+        
+        let logoBase64 = null;
+        if (logoInput.files[0]) {
+            try {
+                logoBase64 = await utils.compressImage(logoInput.files[0], 200, 200, 0.7);
+            } catch (error) {
+                alert('Erro ao processar logo: ' + error.message);
+                return;
+            }
+        }
+        
+        app.instituicoes.create({ nome, cidade, logo: logoBase64 });
+        alert(`Unidade criada!\n\n${nome}${cidade ? ' - ' + cidade : ''}${logoBase64 ? '\n✅ Logo carregado' : '\n⚠️ Sem logo (opcional)'}`);
         document.getElementById('new-inst-nome').value = '';
         document.getElementById('new-inst-cidade').value = '';
+        logoInput.value = '';
         app.openInstituicaoManagement();
     },
 
