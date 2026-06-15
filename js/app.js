@@ -160,13 +160,25 @@ const app = {
 
     closeLogin: () => { document.getElementById('login-modal').classList.add('hidden'); },
 
-        applyPermissions: (p) => {
-        // Usa classList em vez de style.display para evitar conflito com Tailwind
+            applyPermissions: (p) => {
+        console.log('=== applyPermissions ===');
+        console.log('Permissões recebidas:', p);
+        
         const toggle = (id, show) => { 
             const e = document.getElementById(id); 
             if (e) {
-                if (show) { e.classList.remove('hidden'); e.style.display = 'block'; }
-                else { e.classList.add('hidden'); e.style.display = 'none'; }
+                console.log(`Elemento ${id}:`, e);
+                if (show) { 
+                    e.classList.remove('hidden'); 
+                    e.style.display = 'block';
+                    console.log(`✓ ${id} visível`);
+                } else { 
+                    e.classList.add('hidden'); 
+                    e.style.display = 'none';
+                    console.log(`✗ ${id} oculto`);
+                }
+            } else {
+                console.log(`✗ Elemento ${id} não encontrado`);
             }
         };
         
@@ -405,29 +417,78 @@ const app = {
         alert(`✅ "${t}" gerado!\n${d.length} registros em ${fmt.toUpperCase()}`);
     },
 
-        openUserManagement: () => {
-        // Debug: mostra o estado atual
+            applyPermissions: (p) => {
+        console.log('=== applyPermissions ===');
+        console.log('Permissões recebidas:', p);
+        
+        const toggle = (id, show) => { 
+            const e = document.getElementById(id); 
+            if (e) {
+                console.log(`Elemento ${id}:`, e);
+                if (show) { 
+                    e.classList.remove('hidden'); 
+                    e.style.display = 'block';
+                    console.log(`✓ ${id} visível`);
+                } else { 
+                    e.classList.add('hidden'); 
+                    e.style.display = 'none';
+                    console.log(`✗ ${id} oculto`);
+                }
+            } else {
+                console.log(`✗ Elemento ${id} não encontrado`);
+            }
+        };
+        
+        toggle('btn-user-management', p.canManageUsers);
+        toggle('btn-instituicao-management', p.canManageUsers);
+        
+        const rb = document.getElementById('btn-reports');
+        if (rb) { if (p.canManageUsers) { rb.classList.remove('hidden'); rb.style.display = 'block'; } else { rb.classList.add('hidden'); rb.style.display = 'none'; } }
+        
+        const ab = document.getElementById('btn-audit');
+        if (ab) { if (p.canCreate) { ab.classList.remove('hidden'); ab.style.display = 'block'; } else { ab.classList.add('hidden'); ab.style.display = 'none'; } }
+        
+        const addB = document.querySelector('button[onclick="app.navigate(\'add\')"]');
+        if (addB) { if (p.canCreate) { addB.classList.remove('hidden'); addB.style.display = 'block'; } else { addB.classList.add('hidden'); addB.style.display = 'none'; } }
+        
+        const syncB = document.querySelector('button[onclick="sync.runSync()"]');
+        if (syncB) { if (p.canSync) { syncB.classList.remove('hidden'); syncB.style.display = 'block'; } else { syncB.classList.add('hidden'); syncB.style.display = 'none'; } }
+        
+        const prB = document.querySelector('button[onclick="app.printLabels()"]');
+        if (prB) { if (p.canCreate) { prB.classList.remove('hidden'); prB.style.display = 'block'; } else { prB.classList.add('hidden'); prB.style.display = 'none'; } }
+    },
+
+    openUserManagement: () => {
+        console.log('=== openUserManagement ===');
         console.log('isLoggedIn:', app.isLoggedIn);
         console.log('currentUser:', app.currentUser);
         console.log('localUsers:', app.localUsers);
         
-        if (!app.isLoggedIn) { alert('Faça login primeiro'); return; }
+        if (!app.isLoggedIn) { 
+            alert('❌ Faça login primeiro'); 
+            return; 
+        }
         
         const userLevel = app.currentUser?.nivel || app.currentUser?.level;
-        console.log('userLevel:', userLevel);
+        console.log('Nível do usuário:', userLevel);
         
         if (userLevel !== 'admin') { 
-            alert('Apenas administradores podem gerenciar usuários.\n\nSeu nível: ' + (userLevel || 'não definido')); 
+            alert('❌ Apenas administradores podem gerenciar usuários.\n\nSeu nível: ' + (userLevel || 'não definido')); 
             return; 
         }
         
         const c = document.getElementById('users-list');
-        if (!c) { alert('Erro: container da lista não encontrado'); return; }
+        console.log('Container users-list:', c);
+        
+        if (!c) { 
+            alert('❌ Erro: container da lista não encontrado no HTML'); 
+            return; 
+        }
         
         c.innerHTML = '';
         
-        // Mostra todos os usuários exceto o admin master local
         const usersToShow = app.localUsers.filter(u => !(u.username === 'admin' && u.master));
+        console.log('Usuários para mostrar:', usersToShow);
         
         if (usersToShow.length === 0) {
             c.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum usuário cadastrado ainda.<br>Crie o primeiro abaixo.</p>';
@@ -441,25 +502,180 @@ const app = {
         }
         
         const modal = document.getElementById('user-management-modal');
+        console.log('Modal:', modal);
+        
         if (modal) {
             modal.classList.remove('hidden');
-            console.log('Modal aberto com sucesso');
+            console.log('✓ Modal aberto');
+            alert('✅ Modal de usuários aberto!\n\nUsuários carregados: ' + usersToShow.length);
         } else {
-            alert('Erro: modal não encontrado no HTML');
+            alert('❌ Erro: modal não encontrado no HTML');
+        }
+    },
+
+    createUser: async () => {
+        console.log('=== createUser ===');
+        
+        if (!app.isLoggedIn) { 
+            alert('❌ Faça login primeiro'); 
+            return; 
+        }
+        
+        const userLevel = app.currentUser?.nivel || app.currentUser?.level;
+        if (userLevel !== 'admin') { 
+            alert('❌ Apenas administradores'); 
+            return; 
+        }
+        
+        const name = document.getElementById('new-user-name').value.trim();
+        const username = document.getElementById('new-user-username').value.trim();
+        const password = document.getElementById('new-user-password').value;
+        const level = document.getElementById('new-user-level').value;
+        
+        console.log('Dados do formulário:', { name, username, password, level });
+        
+        if (!name || !username || !password) { 
+            alert(' Preencha todos os campos'); 
+            return; 
+        }
+        
+        if (username.includes(' ')) { 
+            alert('❌ Usuário não pode ter espaços'); 
+            return; 
+        }
+        
+        if (app.localUsers.find(x => x.username === username)) { 
+            alert('❌ Usuário já existe'); 
+            return; 
+        }
+        
+        try {
+            const hash = await utils.hashPassword(password);
+            console.log('Hash gerado:', hash);
+            
+            const newUser = { 
+                username: username, 
+                nome: name, 
+                senhaHash: hash, 
+                nivel: level, 
+                ativo: true, 
+                master: false 
+            };
+            
+            console.log('Novo usuário:', newUser);
+            
+            // Adiciona localmente primeiro
+            app.localUsers.push(newUser);
+            localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
+            console.log('✓ Usuário salvo localmente');
+            
+            // Tenta sincronizar com a nuvem
+            try {
+                const res = await sync.syncUsers([newUser]);
+                console.log('Resposta do sync:', res);
+                
+                if (res.status === 'success') {
+                    alert(`✅ Usuário criado com sucesso!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level]?.name || level}`);
+                    document.getElementById('new-user-name').value = '';
+                    document.getElementById('new-user-username').value = '';
+                    document.getElementById('new-user-password').value = '';
+                    app.openUserManagement();
+                } else {
+                    alert(`⚠️ Usuário criado LOCALMENTE, mas erro ao sincronizar:\n${res.message}\n\nO usuário funcionará neste dispositivo.`);
+                    app.openUserManagement();
+                }
+            } catch (syncError) {
+                console.error('Erro no sync:', syncError);
+                alert(`⚠️ Usuário criado LOCALMENTE, mas erro de conexão:\n${syncError.message}\n\nO usuário funcionará neste dispositivo.`);
+                app.openUserManagement();
+            }
+        } catch (error) {
+            console.error('Erro ao criar usuário:', error);
+            alert('❌ Erro ao criar usuário: ' + error.message);
         }
     },
     closeUserManagement: () => { document.getElementById('user-management-modal').classList.add('hidden'); },
 
-    createUser: async () => {
-        if (!app.isLoggedIn || (app.currentUser.nivel || app.currentUser.level) !== 'admin') { alert('Apenas admins'); return; }
-        const n = document.getElementById('new-user-name').value.trim(); const u = document.getElementById('new-user-username').value.trim(); const p = document.getElementById('new-user-password').value; const l = document.getElementById('new-user-level').value;
-        if (!n || !u || !p) { alert('Preencha tudo'); return; } if (u.includes(' ')) { alert('Sem espaços'); return; }
-        if (app.localUsers.find(x => x.username === u)) { alert('Já existe'); return; }
-        const h = await utils.hashPassword(p); const nu = { username: u, nome: n, senhaHash: h, nivel: l, ativo: true, master: false };
-        app.localUsers.push(nu); localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
-        const r = await sync.syncUsers([nu]);
-        if (r.status === 'success') { alert(`✅ Criado!\nNome: ${n}\nUsuário: ${u}\nNível: ${app.accessLevels[l]?.name || l}`); document.getElementById('new-user-name').value = ''; document.getElementById('new-user-username').value = ''; document.getElementById('new-user-password').value = ''; app.openUserManagement(); }
-        else { alert('Criado localmente, erro ao sync: ' + r.message); app.openUserManagement(); }
+  createUser: async () => {
+        console.log('=== createUser ===');
+        
+        if (!app.isLoggedIn) { 
+            alert('❌ Faça login primeiro'); 
+            return; 
+        }
+        
+        const userLevel = app.currentUser?.nivel || app.currentUser?.level;
+        if (userLevel !== 'admin') { 
+            alert('❌ Apenas administradores'); 
+            return; 
+        }
+        
+        const name = document.getElementById('new-user-name').value.trim();
+        const username = document.getElementById('new-user-username').value.trim();
+        const password = document.getElementById('new-user-password').value;
+        const level = document.getElementById('new-user-level').value;
+        
+        console.log('Dados do formulário:', { name, username, password, level });
+        
+        if (!name || !username || !password) { 
+            alert(' Preencha todos os campos'); 
+            return; 
+        }
+        
+        if (username.includes(' ')) { 
+            alert('❌ Usuário não pode ter espaços'); 
+            return; 
+        }
+        
+        if (app.localUsers.find(x => x.username === username)) { 
+            alert('❌ Usuário já existe'); 
+            return; 
+        }
+        
+        try {
+            const hash = await utils.hashPassword(password);
+            console.log('Hash gerado:', hash);
+            
+            const newUser = { 
+                username: username, 
+                nome: name, 
+                senhaHash: hash, 
+                nivel: level, 
+                ativo: true, 
+                master: false 
+            };
+            
+            console.log('Novo usuário:', newUser);
+            
+            // Adiciona localmente primeiro
+            app.localUsers.push(newUser);
+            localStorage.setItem('cloudUsersCache', JSON.stringify(app.localUsers));
+            console.log('✓ Usuário salvo localmente');
+            
+            // Tenta sincronizar com a nuvem
+            try {
+                const res = await sync.syncUsers([newUser]);
+                console.log('Resposta do sync:', res);
+                
+                if (res.status === 'success') {
+                    alert(`✅ Usuário criado com sucesso!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level]?.name || level}`);
+                    document.getElementById('new-user-name').value = '';
+                    document.getElementById('new-user-username').value = '';
+                    document.getElementById('new-user-password').value = '';
+                    app.openUserManagement();
+                } else {
+                    alert(`⚠️ Usuário criado LOCALMENTE, mas erro ao sincronizar:\n${res.message}\n\nO usuário funcionará neste dispositivo.`);
+                    app.openUserManagement();
+                }
+            } catch (syncError) {
+                console.error('Erro no sync:', syncError);
+                alert(`⚠️ Usuário criado LOCALMENTE, mas erro de conexão:\n${syncError.message}\n\nO usuário funcionará neste dispositivo.`);
+                app.openUserManagement();
+            }
+        } catch (error) {
+            console.error('Erro ao criar usuário:', error);
+            alert('❌ Erro ao criar usuário: ' + error.message);
+        }
     },
 
     editUser: async (u) => {
