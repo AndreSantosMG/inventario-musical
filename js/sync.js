@@ -1,6 +1,9 @@
 const sync = {
     GAS_URL: 'https://script.google.com/macros/s/AKfycbxX40Cj4xveniBJ-yPYIw8QiTxbWlKMTV1vX2hA_Wn08azTm3KmgvsDd3A0_YFDBCHjQg/exec',
-    
+
+    // -----------------------------------------------------------------------
+    // SYNC: envia itens locais → nuvem (upsert por código)
+    // -----------------------------------------------------------------------
     runSync: async () => {
         const btn = document.querySelector('button[onclick="sync.runSync()"]');
         const originalText = btn.textContent;
@@ -9,27 +12,27 @@ const sync = {
 
         try {
             const localItems = await db.getAll(app.currentInstituicao?.id);
-            
+
             const response = await fetch(sync.GAS_URL, {
                 method: 'POST',
-                body: JSON.stringify({ 
-                    action: 'sync', 
+                body: JSON.stringify({
+                    action: 'sync',
                     items: localItems,
-                    instituicao: app.currentInstituicao 
+                    instituicao: app.currentInstituicao
                 }),
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }
             });
 
             if (!response.ok) throw new Error('Erro HTTP ' + response.status);
 
             const textResponse = await response.text();
             let result;
-            try { result = JSON.parse(textResponse); } 
+            try { result = JSON.parse(textResponse); }
             catch (e) { throw new Error('Resposta inválida'); }
 
             if (result.status === 'success') {
                 document.getElementById('sync-status').textContent = 'Sincronizado em: ' + new Date().toLocaleString();
-                
+
                 if (result.updatedItems && result.updatedItems.length > 0) {
                     for (const updatedItem of result.updatedItems) {
                         await db.save(updatedItem);
@@ -47,8 +50,12 @@ const sync = {
         } finally {
             btn.textContent = originalText;
             btn.disabled = false;
-        }    },
+        }
+    },
 
+    // -----------------------------------------------------------------------
+    // MESCLAR COM A NUVEM: merge inteligente por updatedAt
+    // -----------------------------------------------------------------------
     restoreFromCloud: async () => {
         const localItems = await db.getAll(app.currentInstituicao?.id);
         const localCount = localItems.length;
@@ -110,5 +117,131 @@ const sync = {
             btn.textContent = originalText;
             btn.disabled = false;
         }
-    }
+    },
+
+    // -----------------------------------------------------------------------
+    // USUÁRIOS: publicar local → nuvem
+    // -----------------------------------------------------------------------
+    publishUsers: async () => {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
+            alert('Apenas administradores podem sincronizar usuários.');
+            return;
+        }
+        const users = app.users.getAll().map(u => ({
+            username:  u.username,
+            nome:      u.name,
+            senhaHash: u.passwordHash,
+            nivel:     u.level,
+            ativo:     true,
+            master:    u.username === 'admin',
+        }));
+        if (!confirm(`Publicar ${users.length} usuário(s) na nuvem?\n\nIsso vai criar ou atualizar os usuários na planilha.`)) return;
+        try {
+            const res = await fetch(sync.GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'syncUsers', users }),
+            });
+            const json = await res.json();
+            if (json.status === 'success') alert('✅ Usuários publicados na nuvem!');
+            else throw new Error(json.message);
+        } catch (e) {
+            alert('Erro: ' + e.message);
+        }
+    },
+
+    // -----------------------------------------------------------------------
+    // USUÁRIOS: baixar nuvem → local (merge: preserva admin local, não apaga ninguém)
+    // -----------------------------------------------------------------------
+    pullUsers: async () => {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
+            alert('Apenas administradores podem sincronizar usuários.');
+            return;
+        }
+        if (!confirm('Baixar usuários da nuvem?\n\nNovos usuários serão adicionados. Usuários locais não serão apagados.')) return;
+        try {
+            const res = await fetch(sync.GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'getUsers' }),
+            });
+            const json = await res.json();
+            if (json.status !== 'success') throw new Error(json.message);
+
+            let inserted = 0, updated = 0;
+            for (const u of (json.users || [])) {
+                if (!u.username || !u.senhaHash) continue;
+                // Admin local nunca é sobrescrito pela nuvem
+                if (u.username === 'admin' && app.users.get('admin')) continue;
+                const existing = app.users.get(u.username);
+                app.users.create({
+                    username:     u.username,
+                    name:         u.nome,
+                    passwordHash: u.senhaHash,
+                    level:        u.nivel || 'viewer',
+                });
+                existing ? updated++ : inserted++;
+            }
+            alert(`✅ Sincronização concluída!\n\n• ${inserted} usuário(s) novo(s) adicionado(s)\n• ${updated} usuário(s) atualizado(s)\n\nNenhum usuário local foi removido.`);
+            app.openUserManagement();
+        } catch (e) {
+            alert('Erro: ' + e.message);
+        }
+    },
+
+    // -----------------------------------------------------------------------
+    // INSTITUIÇÕES: publicar local → nuvem
+    // -----------------------------------------------------------------------
+    publishInstituicoes: async () => {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
+            alert('Apenas administradores podem sincronizar unidades.');
+            return;
+        }
+        const instituicoes = app.instituicoes.getAll();
+        if (!confirm(`Publicar ${instituicoes.length} unidade(s) na nuvem?`)) return;
+        try {
+            const res = await fetch(sync.GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'syncInstituicoes', instituicoes }),
+            });
+            const json = await res.json();
+            if (json.status === 'success') alert('✅ Unidades publicadas na nuvem!');
+            else throw new Error(json.message);
+        } catch (e) {
+            alert('Erro: ' + e.message);
+        }
+    },
+
+    // -----------------------------------------------------------------------
+    // INSTITUIÇÕES: baixar nuvem → local (merge: não apaga locais)
+    // -----------------------------------------------------------------------
+    pullInstituicoes: async () => {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') {
+            alert('Apenas administradores podem sincronizar unidades.');
+            return;
+        }
+        if (!confirm('Baixar unidades da nuvem?\n\nNovas unidades serão adicionadas. Unidades locais não serão apagadas.')) return;
+        try {
+            const res = await fetch(sync.GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'getInstituicoes' }),
+            });
+            const json = await res.json();
+            if (json.status !== 'success') throw new Error(json.message);
+
+            let inserted = 0;
+            const existing = app.instituicoes.getAll().map(i => i.id);
+            for (const inst of (json.instituicoes || [])) {
+                if (!inst.id || existing.includes(inst.id)) continue;
+                localStorage.setItem(`inst_${inst.id}`, JSON.stringify(inst));
+                inserted++;
+            }
+            alert(`✅ Sincronização concluída!\n\n• ${inserted} unidade(s) nova(s) adicionada(s)\n\nNenhuma unidade local foi removida.`);
+            app.openInstituicaoManagement();
+        } catch (e) {
+            alert('Erro: ' + e.message);
+        }
+    },
 };
