@@ -13,7 +13,7 @@ const app = {
 
     init: async () => {
         await db.init();
-        app.users.init();
+        await app.users.init();
         app.instituicoes.init();
         
         const savedSession = localStorage.getItem('sessionData');
@@ -161,9 +161,9 @@ const app = {
         }
     },
 
-    openLoginModal: () => {
+    openLoginModal: async () => {
         try {
-            app.users.init();
+            await app.users.init();
             app.instituicoes.init();
 
             const instituicoes = app.instituicoes.getAll();
@@ -200,7 +200,7 @@ const app = {
         }
     },
 
-    doLogin: () => {
+    doLogin: async () => {
         const username = document.getElementById('login-user-select').value;
         const p = document.getElementById('login-pass').value;
         const instId = document.getElementById('login-instituicao').value;
@@ -209,7 +209,10 @@ const app = {
         if (!username) { alert('Selecione seu usuário'); return; }
         
         const user = app.users.get(username);
-        if (!user || user.password !== p) { alert('Senha incorreta!'); return; }
+        if (!user) { alert('Senha incorreta!'); return; }
+
+        const pHash = await utils.hashPassword(p);
+        if (user.passwordHash !== pHash) { alert('Senha incorreta!'); return; }
 
         const instituicao = app.instituicoes.get(instId);
         if (!instituicao) { alert('Unidade não encontrada'); return; }
@@ -1007,9 +1010,9 @@ const app = {
         alert(`✅ Relatório "${titulo}" gerado!\n\n${data.length} registros em ${format.toUpperCase()}`);
     },
 
-    openUserManagement: () => {
+    openUserManagement: async () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
-        app.users.init();
+        await app.users.init();
         const users = app.users.getAll();
         const container = document.getElementById('users-list');
         if (!container) return;
@@ -1033,7 +1036,7 @@ const app = {
 
     closeUserManagement: () => { document.getElementById('user-management-modal').classList.add('hidden'); },
 
-    createUser: () => {
+    createUser: async () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
         const name = document.getElementById('new-user-name').value.trim();
         const username = document.getElementById('new-user-username').value.trim();
@@ -1042,7 +1045,8 @@ const app = {
         if (!name || !username || !password) { alert('Preencha todos os campos'); return; }
         if (username.includes(' ')) { alert('Usuário não pode ter espaços'); return; }
         if (app.users.get(username)) { alert('Usuário já existe'); return; }
-        app.users.create({ name, username, password, level });
+        const passwordHash = await utils.hashPassword(password);
+        app.users.create({ name, username, passwordHash, level });
         alert(`Usuário criado!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level].name}`);
         document.getElementById('new-user-name').value = '';
         document.getElementById('new-user-username').value = '';
@@ -1050,7 +1054,7 @@ const app = {
         app.openUserManagement();
     },
 
-    editUser: (username) => {
+    editUser: async (username) => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
         const user = app.users.get(username);
         if (!user) return;
@@ -1063,7 +1067,7 @@ const app = {
         if (confirm('Deseja alterar a senha?')) {
             const newPassword = prompt('Nova senha:');
             if (newPassword && newPassword.trim()) {
-                user.password = newPassword.trim();
+                user.passwordHash = await utils.hashPassword(newPassword.trim());
                 app.users.create(user);
                 alert('Senha alterada!');
             }
@@ -1142,9 +1146,24 @@ const app = {
     },
 
     users: {
-        init: () => {
+        init: async () => {
             if (!localStorage.getItem('user_admin')) {
-                localStorage.setItem('user_admin', JSON.stringify({ username: 'admin', password: 'musica2026', level: 'admin', name: 'Administrador' }));
+                const passwordHash = await utils.hashPassword('musica2026');
+                localStorage.setItem('user_admin', JSON.stringify({ username: 'admin', passwordHash, level: 'admin', name: 'Administrador' }));
+            }
+            // Migração: converte usuários antigos com senha em texto puro para hash
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('user_')) {
+                    try {
+                        const user = JSON.parse(localStorage.getItem(key));
+                        if (user && user.password && !user.passwordHash) {
+                            user.passwordHash = await utils.hashPassword(user.password);
+                            delete user.password;
+                            localStorage.setItem(key, JSON.stringify(user));
+                        }
+                    } catch (e) {}
+                }
             }
         },
         create: (userData) => { localStorage.setItem(`user_${userData.username}`, JSON.stringify(userData)); },
