@@ -213,21 +213,31 @@ const sync = {
             const json = await res.json();
             if (json.status !== 'success') throw new Error(json.message);
 
-            let inserted = 0, updated = 0;
+            const NIVEIS_VALIDOS = ['admin', 'editor', 'viewer'];
+            const tombstones = JSON.parse(localStorage.getItem('users_deleted') || '[]');
+
+            let inserted = 0, updated = 0, skipped = 0;
             for (const u of (json.users || [])) {
-                if (!u.username || !u.senhaHash) continue;
-                // Admin local nunca é sobrescrito pela nuvem
+                if (!u.username || !u.senhaHash || u.senhaHash.length !== 64) continue;
+                if (!NIVEIS_VALIDOS.includes(u.nivel)) continue;
+                // Nunca ressuscita usuário excluído localmente
+                if (tombstones.includes(u.username)) { skipped++; continue; }
+                // Admin local nunca é sobrescrito
                 if (u.username === 'admin' && app.users.get('admin')) continue;
                 const existing = app.users.get(u.username);
+                // Não sobrescreve usuário que já trocou a senha
+                if (existing && !existing.primeiroAcesso) continue;
                 app.users.create({
-                    username:     u.username,
-                    name:         u.nome,
-                    passwordHash: u.senhaHash,
-                    level:        u.nivel || 'viewer',
+                    username:      u.username,
+                    name:          u.nome,
+                    passwordHash:  u.senhaHash,
+                    level:         u.nivel,
+                    primeiroAcesso: u.primeiroAcesso === true,
                 });
                 existing ? updated++ : inserted++;
             }
-            alert(`✅ Sincronização concluída!\n\n• ${inserted} usuário(s) novo(s) adicionado(s)\n• ${updated} usuário(s) atualizado(s)\n\nNenhum usuário local foi removido.`);
+            const skipMsg = skipped > 0 ? `\n• ${skipped} usuário(s) ignorado(s) por estarem na lista de excluídos` : '';
+            alert(`✅ Sincronização concluída!\n\n• ${inserted} usuário(s) novo(s) adicionado(s)\n• ${updated} usuário(s) atualizado(s)${skipMsg}\n\nNenhum usuário local foi removido.`);
             app.openUserManagement();
         } catch (e) {
             alert('Erro: ' + e.message);
