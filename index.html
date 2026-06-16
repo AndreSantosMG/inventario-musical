@@ -227,6 +227,11 @@
                     <button onclick="app.createUser()" class="w-full bg-green-600 text-white p-2 rounded">Criar</button>
                 </div>
                 <div id="users-list" class="space-y-2"></div>
+                <div class="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                    <p class="text-xs text-gray-500 mb-1">Sincronização entre dispositivos (somente admin)</p>
+                    <button onclick="sync.publishUsers()" class="w-full bg-blue-600 text-white p-2 rounded text-sm">☁️ Publicar usuários na nuvem</button>
+                    <button onclick="sync.pullUsers()" class="w-full bg-indigo-600 text-white p-2 rounded text-sm">📥 Baixar usuários da nuvem</button>
+                </div>
                 <button onclick="app.closeUserManagement()" class="w-full bg-gray-300 p-2 rounded mt-4">Fechar</button>
             </div>
         </div>
@@ -243,6 +248,11 @@
                     <button onclick="app.createInstituicao()" class="w-full bg-green-600 text-white p-2 rounded">Criar Unidade</button>
                 </div>
                 <div id="instituicoes-list" class="space-y-2"></div>
+                <div class="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                    <p class="text-xs text-gray-500 mb-1">Sincronização entre dispositivos (somente admin)</p>
+                    <button onclick="sync.publishInstituicoes()" class="w-full bg-blue-600 text-white p-2 rounded text-sm">☁️ Publicar unidades na nuvem</button>
+                    <button onclick="sync.pullInstituicoes()" class="w-full bg-indigo-600 text-white p-2 rounded text-sm">📥 Baixar unidades da nuvem</button>
+                </div>
                 <button onclick="app.closeInstituicaoManagement()" class="w-full bg-gray-300 p-2 rounded mt-4">Fechar</button>
             </div>
         </div>
