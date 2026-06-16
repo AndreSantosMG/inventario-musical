@@ -189,7 +189,8 @@ const app = {
                 usuarios.forEach(user => {
                     const option = document.createElement('option');
                     option.value = user.username;
-                    option.textContent = `${user.name} (${app.accessLevels[user.level].name})`;
+                    const levelInfo = app.accessLevels[user.level];
+                    option.textContent = `${user.name || user.username}${levelInfo ? ' (' + levelInfo.name + ')' : ''}`;
                     selectUser.appendChild(option);
                 });
             }
@@ -1196,6 +1197,11 @@ const app = {
                         if (user && user.password && !user.passwordHash) {
                             user.passwordHash = await utils.hashPassword(user.password);
                             delete user.password;
+                            localStorage.setItem(key, JSON.stringify(user));
+                        }
+                        // Corrige level inválido ou ausente
+                        if (user && !['admin', 'editor', 'viewer'].includes(user.level)) {
+                            user.level = user.username === 'admin' ? 'admin' : 'viewer';
                             localStorage.setItem(key, JSON.stringify(user));
                         }
                     } catch (e) {}
