@@ -1,4 +1,13 @@
 const utils = {
+    // Gera hash SHA-256 de uma string (usado para senhas).
+    // Retorna string hexadecimal.
+    hashPassword: async (text) => {
+        const enc = new TextEncoder().encode(text);
+        const buf = await crypto.subtle.digest('SHA-256', enc);
+        return Array.from(new Uint8Array(buf))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    },
     generateCode: () => {
         const year = new Date().getFullYear();
         const random = Math.floor(10000 + Math.random() * 90000);
