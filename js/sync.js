@@ -186,8 +186,6 @@ const sync = {
             });
             const json = await res.json();
             if (json.status === 'success') {
-                // Limpa tombstones após publicação bem-sucedida
-                localStorage.removeItem('users_deleted');
                 alert('✅ Usuários publicados na nuvem!');
             } else throw new Error(json.message);
         } catch (e) {
