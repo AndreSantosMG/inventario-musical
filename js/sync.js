@@ -49,18 +49,22 @@ const sync = {
             btn.disabled = false;
         }    },
 
-    // VERSÃO SIMPLIFICADA: Sempre substitui, sem mesclar
     restoreFromCloud: async () => {
         const localItems = await db.getAll(app.currentInstituicao?.id);
         const localCount = localItems.length;
-        
-        if (!confirm(`Você tem ${localCount} itens no celular.\n\nA restauração vai SUBSTITUIR tudo pelos dados da planilha.\n\nDeseja continuar?`)) {
-            return;
-        }
+
+        if (!confirm(
+            `Você tem ${localCount} itens no celular.\n\n` +
+            `A sincronização vai MESCLAR os dados locais com a planilha:\n` +
+            `• Itens mais recentes na nuvem serão atualizados aqui\n` +
+            `• Itens mais recentes no celular serão preservados\n` +
+            `• Nenhum dado local será apagado\n\n` +
+            `Deseja continuar?`
+        )) return;
 
         const btn = document.querySelector('button[onclick="sync.restoreFromCloud()"]');
         const originalText = btn.textContent;
-        btn.textContent = 'Restaurando...';
+        btn.textContent = 'Sincronizando...';
         btn.disabled = true;
 
         try {
@@ -73,55 +77,35 @@ const sync = {
 
             const textResponse = await response.text();
             let result;
-            try { result = JSON.parse(textResponse); } 
-            catch (e) { throw new Error('Resposta inválida'); }
+            try { result = JSON.parse(textResponse); }
+            catch (e) { throw new Error('Resposta inválida do servidor'); }
 
             if (result.status === 'success' && result.data) {
                 const totalNaNuvem = result.data.length;
-                
+
                 if (totalNaNuvem === 0) {
-                    alert('A planilha está VAZIA.\n\nNenhum dado para restaurar.');
+                    alert('A planilha está VAZIA.\n\nNenhum dado para sincronizar.');
                     return;
                 }
 
-                // Limpa banco local
-                await db.clear();
-
-                // Restaura TODOS os itens da planilha
-                let count = 0;
                 const instId = app.currentInstituicao?.id;
-                const instNome = app.currentInstituicao?.nome;
-                
-                for (const row of result.data) {
-                    const item = {
-                        codigo: row.Codigo,
-                        instituicao: instId || 'default',
-                        instituicaoNome: row.Instituicao || instNome,                        instituicaoCidade: row.Cidade || app.currentInstituicao?.cidade,
-                        categoria: row.Categoria,
-                        descricao: row.Descricao,
-                        status: row.Status,
-                        responsavel: row.Responsavel,
-                        dataEntrada: row.DataEntrada,
-                        foto: row.FotoURL,
-                        observacao: row.Observacao,
-                        historico: row.Historico || []
-                    };
-                    await db.save(item);
-                    count++;
-                }
-                
-                alert(`✅ Restauração concluída!\n\n${count} itens baixados da nuvem.`);
-                
-                // Recarrega a página para garantir que tudo seja exibido
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
+                const stats = await db.mergeFromCloud(result.data, instId);
+
+                alert(
+                    `✅ Sincronização concluída!\n\n` +
+                    `• ${stats.inserted} itens novos baixados da nuvem\n` +
+                    `• ${stats.updated} itens atualizados (nuvem mais recente)\n` +
+                    `• ${stats.kept} itens mantidos (celular mais recente)\n\n` +
+                    `Nenhum dado local foi perdido.`
+                );
+
+                setTimeout(() => { window.location.reload(); }, 500);
             } else {
                 throw new Error(result.message || 'Nenhum dado encontrado');
             }
         } catch (error) {
-            console.error('Erro na restauração:', error);
-            alert('ERRO NA RESTAURAÇÃO: ' + error.message);
+            console.error('Erro na sincronização:', error);
+            alert('ERRO: ' + error.message);
         } finally {
             btn.textContent = originalText;
             btn.disabled = false;
