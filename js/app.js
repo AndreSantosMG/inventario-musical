@@ -15,7 +15,11 @@ const app = {
         await db.init();
         await app.users.init();
         app.instituicoes.init();
-        
+
+        // Busca usuários da nuvem silenciosamente ao iniciar,
+        // para que novos usuários já apareçam na tela de login
+        sync.pullUsersOnInit().catch(() => {});
+
         const savedSession = localStorage.getItem('sessionData');
         if (savedSession) {
             try {
@@ -204,10 +208,10 @@ const app = {
         const username = document.getElementById('login-user-select').value;
         const p = document.getElementById('login-pass').value;
         const instId = document.getElementById('login-instituicao').value;
-        
+
         if (!instId) { alert('Selecione sua unidade/instituição'); return; }
         if (!username) { alert('Selecione seu usuário'); return; }
-        
+
         const user = app.users.get(username);
         if (!user) { alert('Senha incorreta!'); return; }
 
@@ -216,36 +220,71 @@ const app = {
 
         const instituicao = app.instituicoes.get(instId);
         if (!instituicao) { alert('Unidade não encontrada'); return; }
-        
+
+        // Primeiro acesso: exige troca de senha antes de entrar
+        if (user.primeiroAcesso) {
+            document.getElementById('login-modal').classList.add('hidden');
+            await app.forcarTrocaSenha(user, instituicao);
+            return;
+        }
+
+        app.concluirLogin(user, instituicao);
+    },
+
+    // Fluxo de troca obrigatória de senha (primeiro acesso)
+    forcarTrocaSenha: async (user, instituicao) => {
+        const novaSenha = prompt(
+            `Bem-vindo(a), ${user.name}!\n\n` +
+            `Este é seu primeiro acesso. Você precisa criar uma senha pessoal.\n\n` +
+            `Nova senha (mínimo 6 caracteres):`
+        );
+        if (!novaSenha || novaSenha.trim().length < 6) {
+            alert('Senha inválida. Mínimo de 6 caracteres. Tente novamente.');
+            app.openLoginModal();
+            return;
+        }
+        const confirmar = prompt('Confirme sua nova senha:');
+        if (novaSenha !== confirmar) {
+            alert('As senhas não conferem. Tente novamente.');
+            app.openLoginModal();
+            return;
+        }
+        user.passwordHash = await utils.hashPassword(novaSenha.trim());
+        delete user.primeiroAcesso;
+        app.users.create(user);
+
+        // Publica senha atualizada na nuvem automaticamente
+        sync.publishUsers().catch(() => {});
+
+        alert('✅ Senha definida com sucesso! Bem-vindo(a) ao sistema.');
+        app.concluirLogin(user, instituicao);
+    },
+
+    // Finaliza o login após autenticação e troca de senha (se necessário)
+    concluirLogin: (user, instituicao) => {
         app.isLoggedIn = true;
         app.currentUser = user;
         app.currentInstituicao = instituicao;
-        
-        localStorage.setItem('sessionData', JSON.stringify({ username: username, instituicao: instituicao }));
-        
+
+        localStorage.setItem('sessionData', JSON.stringify({ username: user.username, instituicao }));
+
         const btn = document.getElementById('btn-login-toggle');
         if (btn) btn.textContent = `🔓 ${user.name}`;
-        
+
         document.getElementById('login-modal').classList.add('hidden');
-        
+
         app.applyPermissions(app.accessLevels[user.level]);
         app.navigate('dashboard');
         app.updateDashboard();
         app.updateInstituicaoDisplay();
         app.updateLogoDisplay();
-        
+
         const hora = new Date().getHours();
-        let saudacao = 'Olá';
-        if (hora < 12) saudacao = 'Bom dia';
-        else if (hora < 18) saudacao = 'Boa tarde';
-        else saudacao = 'Boa noite';
-        
+        let saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
         setTimeout(() => {
             alert(`${saudacao}, ${user.name}!\n\nBem-vindo(a) ao sistema de Inventário.\nUnidade: ${instituicao.nome}`);
         }, 300);
     },
-
-    closeLogin: () => { document.getElementById('login-modal').classList.add('hidden'); },
 
     applyPermissions: (perms) => {
         const addBtn = document.querySelector('button[onclick="app.navigate(\'add\')"]');
@@ -1040,17 +1079,17 @@ const app = {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
         const name = document.getElementById('new-user-name').value.trim();
         const username = document.getElementById('new-user-username').value.trim();
-        const password = document.getElementById('new-user-password').value;
         const level = document.getElementById('new-user-level').value;
-        if (!name || !username || !password) { alert('Preencha todos os campos'); return; }
+        if (!name || !username) { alert('Preencha nome e usuário'); return; }
         if (username.includes(' ')) { alert('Usuário não pode ter espaços'); return; }
         if (app.users.get(username)) { alert('Usuário já existe'); return; }
-        const passwordHash = await utils.hashPassword(password);
-        app.users.create({ name, username, passwordHash, level });
-        alert(`Usuário criado!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level].name}`);
+
+        const SENHA_PADRAO = 'mudar@123';
+        const passwordHash = await utils.hashPassword(SENHA_PADRAO);
+        app.users.create({ name, username, passwordHash, level, primeiroAcesso: true });
+        alert(`Usuário criado!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level].name}\nSenha inicial: ${SENHA_PADRAO}\n\n⚠️ O usuário será obrigado a trocar a senha no primeiro acesso.`);
         document.getElementById('new-user-name').value = '';
         document.getElementById('new-user-username').value = '';
-        document.getElementById('new-user-password').value = '';
         app.openUserManagement();
     },
 

@@ -2,6 +2,39 @@ const sync = {
     GAS_URL: 'https://script.google.com/macros/s/AKfycbxX40Cj4xveniBJ-yPYIw8QiTxbWlKMTV1vX2hA_Wn08azTm3KmgvsDd3A0_YFDBCHjQg/exec',
 
     // -----------------------------------------------------------------------
+    // INICIALIZAÇÃO: busca usuários da nuvem silenciosamente
+    // Não exibe alerts, não exige confirmação — só atualiza o localStorage
+    // -----------------------------------------------------------------------
+    pullUsersOnInit: async () => {
+        try {
+            const res = await fetch(sync.GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'getUsers' }),
+            });
+            const json = await res.json();
+            if (json.status !== 'success') return;
+            for (const u of (json.users || [])) {
+                if (!u.username || !u.senhaHash) continue;
+                // Admin local nunca é sobrescrito
+                if (u.username === 'admin' && app.users.get('admin')) continue;
+                // Não sobrescreve usuário local que já trocou a senha
+                const local = app.users.get(u.username);
+                if (local && !local.primeiroAcesso) continue;
+                app.users.create({
+                    username:      u.username,
+                    name:          u.nome,
+                    passwordHash:  u.senhaHash,
+                    level:         u.nivel || 'viewer',
+                    primeiroAcesso: u.primeiroAcesso !== false ? true : undefined,
+                });
+            }
+        } catch (e) {
+            // Falha silenciosa — app funciona offline normalmente
+        }
+    },
+
+    // -----------------------------------------------------------------------
     // SYNC: envia itens locais → nuvem (upsert por código)
     // -----------------------------------------------------------------------
     runSync: async () => {
@@ -128,12 +161,13 @@ const sync = {
             return;
         }
         const users = app.users.getAll().map(u => ({
-            username:  u.username,
-            nome:      u.name,
-            senhaHash: u.passwordHash,
-            nivel:     u.level,
-            ativo:     true,
-            master:    u.username === 'admin',
+            username:      u.username,
+            nome:          u.name,
+            senhaHash:     u.passwordHash,
+            nivel:         u.level,
+            ativo:         true,
+            master:        u.username === 'admin',
+            primeiroAcesso: u.primeiroAcesso || false,
         }));
         if (!confirm(`Publicar ${users.length} usuário(s) na nuvem?\n\nIsso vai criar ou atualizar os usuários na planilha.`)) return;
         try {
