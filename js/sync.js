@@ -14,19 +14,24 @@ const sync = {
             });
             const json = await res.json();
             if (json.status !== 'success') return;
+
+            const NIVEIS_VALIDOS = ['admin', 'editor', 'viewer'];
+
             for (const u of (json.users || [])) {
-                if (!u.username || !u.senhaHash) continue;
+                // Ignora qualquer registro com dados inválidos
+                if (!u.username || !u.senhaHash || u.senhaHash.length !== 64) continue;
+                if (!NIVEIS_VALIDOS.includes(u.nivel)) continue;
                 // Admin local nunca é sobrescrito
                 if (u.username === 'admin' && app.users.get('admin')) continue;
-                // Não sobrescreve usuário local que já trocou a senha
+                // Não sobrescreve usuário que já trocou a senha
                 const local = app.users.get(u.username);
                 if (local && !local.primeiroAcesso) continue;
                 app.users.create({
                     username:      u.username,
                     name:          u.nome,
                     passwordHash:  u.senhaHash,
-                    level:         u.nivel || 'viewer',
-                    primeiroAcesso: u.primeiroAcesso !== false ? true : undefined,
+                    level:         u.nivel,
+                    primeiroAcesso: u.primeiroAcesso === true,
                 });
             }
         } catch (e) {

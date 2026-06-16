@@ -16,8 +16,8 @@ const app = {
         await app.users.init();
         app.instituicoes.init();
 
-        // pullUsersOnInit desabilitado temporariamente — ver diagnóstico
-        // sync.pullUsersOnInit().catch(() => {});
+        // Busca usuários da nuvem silenciosamente ao iniciar
+        sync.pullUsersOnInit().catch(() => {});
 
         const savedSession = localStorage.getItem('sessionData');
         if (savedSession) {
