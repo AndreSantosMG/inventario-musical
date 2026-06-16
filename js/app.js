@@ -26,6 +26,11 @@ const app = {
                 const session = JSON.parse(savedSession);
                 const user = app.users.get(session.username);
                 if (user && session.instituicao) {
+                    // Garante level válido antes de aplicar permissões
+                    if (!['admin', 'editor', 'viewer'].includes(user.level)) {
+                        user.level = user.username === 'admin' ? 'admin' : 'viewer';
+                        app.users.create(user);
+                    }
                     app.isLoggedIn = true;
                     app.currentUser = user;
                     app.currentInstituicao = session.instituicao;
@@ -288,6 +293,7 @@ const app = {
     },
 
     applyPermissions: (perms) => {
+        if (!perms) perms = app.accessLevels['viewer']; // fallback seguro
         const addBtn = document.querySelector('button[onclick="app.navigate(\'add\')"]');
         if (addBtn) addBtn.style.display = perms.canCreate ? 'block' : 'none';
         
