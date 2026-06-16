@@ -16,11 +16,13 @@ const sync = {
             if (json.status !== 'success') return;
 
             const NIVEIS_VALIDOS = ['admin', 'editor', 'viewer'];
+            const tombstones = JSON.parse(localStorage.getItem('users_deleted') || '[]');
 
             for (const u of (json.users || [])) {
-                // Ignora qualquer registro com dados inválidos
                 if (!u.username || !u.senhaHash || u.senhaHash.length !== 64) continue;
                 if (!NIVEIS_VALIDOS.includes(u.nivel)) continue;
+                // Nunca ressuscita um usuário excluído localmente
+                if (tombstones.includes(u.username)) continue;
                 // Admin local nunca é sobrescrito
                 if (u.username === 'admin' && app.users.get('admin')) continue;
                 // Não sobrescreve usuário que já trocou a senha
@@ -174,16 +176,20 @@ const sync = {
             master:        u.username === 'admin',
             primeiroAcesso: u.primeiroAcesso || false,
         }));
-        if (!confirm(`Publicar ${users.length} usuário(s) na nuvem?\n\nIsso vai criar ou atualizar os usuários na planilha.`)) return;
+        const deletedUsernames = JSON.parse(localStorage.getItem('users_deleted') || '[]');
+        if (!confirm(`Publicar ${users.length} usuário(s) na nuvem?${deletedUsernames.length ? `\n${deletedUsernames.length} usuário(s) serão removidos da nuvem.` : ''}`)) return;
         try {
             const res = await fetch(sync.GAS_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'syncUsers', users }),
+                body: JSON.stringify({ action: 'syncUsers', users, deletedUsernames }),
             });
             const json = await res.json();
-            if (json.status === 'success') alert('✅ Usuários publicados na nuvem!');
-            else throw new Error(json.message);
+            if (json.status === 'success') {
+                // Limpa tombstones após publicação bem-sucedida
+                localStorage.removeItem('users_deleted');
+                alert('✅ Usuários publicados na nuvem!');
+            } else throw new Error(json.message);
         } catch (e) {
             alert('Erro: ' + e.message);
         }

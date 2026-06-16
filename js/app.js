@@ -1228,7 +1228,14 @@ const app = {
             return users;
         },
         get: (username) => { const data = localStorage.getItem(`user_${username}`); return data ? JSON.parse(data) : null; },
-        delete: (username) => { if (username === 'admin') { alert('Não pode excluir o admin'); return; } localStorage.removeItem(`user_${username}`); }
+        delete: (username) => {
+            if (username === 'admin') { alert('Não pode excluir o admin'); return; }
+            localStorage.removeItem(`user_${username}`);
+            // Registra exclusão para sincronizar com a nuvem
+            const tombstones = JSON.parse(localStorage.getItem('users_deleted') || '[]');
+            if (!tombstones.includes(username)) tombstones.push(username);
+            localStorage.setItem('users_deleted', JSON.stringify(tombstones));
+        }
     },
 
     instituicoes: {
