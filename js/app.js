@@ -197,6 +197,22 @@ const app = {
                     option.textContent = `${user.name || user.username}${levelInfo ? ' (' + levelInfo.name + ')' : ''}`;
                     selectUser.appendChild(option);
                 });
+
+                // Ao selecionar usuário, preenche instituição automaticamente
+                selectUser.onchange = () => {
+                    const user = app.users.get(selectUser.value);
+                    if (!user) return;
+                    if (user.level === 'admin') {
+                        // Admin pode escolher qualquer instituição
+                        if (selectInst) selectInst.disabled = false;
+                    } else if (user.instituicaoId) {
+                        // Usuário comum: instituição travada no cadastro
+                        if (selectInst) {
+                            selectInst.value = user.instituicaoId;
+                            selectInst.disabled = true;
+                        }
+                    }
+                };
             }
 
             const passField = document.getElementById('login-pass');
@@ -212,9 +228,7 @@ const app = {
     doLogin: async () => {
         const username = document.getElementById('login-user-select').value;
         const p = document.getElementById('login-pass').value;
-        const instId = document.getElementById('login-instituicao').value;
 
-        if (!instId) { alert('Selecione sua unidade/instituição'); return; }
         if (!username) { alert('Selecione seu usuário'); return; }
 
         const user = app.users.get(username);
@@ -223,8 +237,18 @@ const app = {
         const pHash = await utils.hashPassword(p);
         if (user.passwordHash !== pHash) { alert('Senha incorreta!'); return; }
 
+        // Admin escolhe instituição pelo select; outros têm instituição definida no cadastro
+        let instId;
+        if (user.level === 'admin') {
+            instId = document.getElementById('login-instituicao').value;
+            if (!instId) { alert('Selecione a unidade de acesso'); return; }
+        } else {
+            instId = user.instituicaoId;
+            if (!instId) { alert('Usuário sem instituição definida. Contate o administrador.'); return; }
+        }
+
         const instituicao = app.instituicoes.get(instId);
-        if (!instituicao) { alert('Unidade não encontrada'); return; }
+        if (!instituicao) { alert('Instituição não encontrada. Atualize os dados ou contate o administrador.'); return; }
 
         // Primeiro acesso: exige troca de senha antes de entrar
         if (user.primeiroAcesso) {
@@ -1058,6 +1082,18 @@ const app = {
     openUserManagement: async () => {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
         await app.users.init();
+
+        // Popula select de instituição do formulário de criação
+        const selectInst = document.getElementById('new-user-instituicao');
+        if (selectInst) {
+            selectInst.innerHTML = '<option value="">-- Instituição do usuário --</option>';
+            app.instituicoes.getAll().forEach(inst => {
+                const opt = document.createElement('option');
+                opt.value = inst.id;
+                opt.textContent = inst.nome;
+                selectInst.appendChild(opt);
+            });
+        }
         const users = app.users.getAll();
         const container = document.getElementById('users-list');
         if (!container) return;
@@ -1085,17 +1121,21 @@ const app = {
         if (!app.isLoggedIn || app.currentUser.level !== 'admin') { alert('Apenas administradores'); return; }
         const name = document.getElementById('new-user-name').value.trim();
         const username = document.getElementById('new-user-username').value.trim();
+        const instId = document.getElementById('new-user-instituicao').value;
         const level = document.getElementById('new-user-level').value;
         if (!name || !username) { alert('Preencha nome e usuário'); return; }
+        if (!instId) { alert('Selecione a instituição do usuário'); return; }
         if (username.includes(' ')) { alert('Usuário não pode ter espaços'); return; }
         if (app.users.get(username)) { alert('Usuário já existe'); return; }
 
+        const inst = app.instituicoes.get(instId);
         const SENHA_PADRAO = 'mudar@123';
         const passwordHash = await utils.hashPassword(SENHA_PADRAO);
-        app.users.create({ name, username, passwordHash, level, primeiroAcesso: true });
-        alert(`Usuário criado!\n\nNome: ${name}\nUsuário: ${username}\nNível: ${app.accessLevels[level].name}\nSenha inicial: ${SENHA_PADRAO}\n\n⚠️ O usuário será obrigado a trocar a senha no primeiro acesso.`);
+        app.users.create({ name, username, passwordHash, level, instituicaoId: instId, instituicaoNome: inst?.nome || '', primeiroAcesso: true });
+        alert(`Usuário criado!\n\nNome: ${name}\nUsuário: ${username}\nInstituição: ${inst?.nome || instId}\nNível: ${app.accessLevels[level].name}\nSenha inicial: ${SENHA_PADRAO}\n\n⚠️ O usuário será obrigado a trocar a senha no primeiro acesso.`);
         document.getElementById('new-user-name').value = '';
         document.getElementById('new-user-username').value = '';
+        document.getElementById('new-user-instituicao').value = '';
         app.openUserManagement();
     },
 
@@ -1241,7 +1281,17 @@ const app = {
     instituicoes: {
         init: () => {
             if (!localStorage.getItem('inst_default')) {
-                localStorage.setItem('inst_default', JSON.stringify({ id: 'default', nome: 'Escola de Música', cidade: 'Sede' }));
+                localStorage.setItem('inst_default', JSON.stringify({ id: 'default', nome: 'Fundação Dirce da Silva Figueiredo', cidade: 'Pedro Leopoldo' }));
+            }
+            // Migração: renomeia instituição padrão se ainda tiver o nome antigo
+            const instPadrao = localStorage.getItem('inst_default');
+            if (instPadrao) {
+                const inst = JSON.parse(instPadrao);
+                if (inst.nome === 'Escola de Música') {
+                    inst.nome = 'Fundação Dirce da Silva Figueiredo';
+                    inst.cidade = inst.cidade === 'Sede' ? 'Pedro Leopoldo' : inst.cidade;
+                    localStorage.setItem('inst_default', JSON.stringify(inst));
+                }
             }
         },
         create: (instData) => {

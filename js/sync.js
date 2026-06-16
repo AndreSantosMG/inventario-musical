@@ -29,10 +29,12 @@ const sync = {
                 const local = app.users.get(u.username);
                 if (local && !local.primeiroAcesso) continue;
                 app.users.create({
-                    username:      u.username,
-                    name:          u.nome,
-                    passwordHash:  u.senhaHash,
-                    level:         u.nivel,
+                    username:       u.username,
+                    name:           u.nome,
+                    passwordHash:   u.senhaHash,
+                    level:          u.nivel,
+                    instituicaoId:  u.instituicaoId  || '',
+                    instituicaoNome: u.instituicaoNome || '',
                     primeiroAcesso: u.primeiroAcesso === true,
                 });
             }
@@ -168,13 +170,15 @@ const sync = {
             return;
         }
         const users = app.users.getAll().map(u => ({
-            username:      u.username,
-            nome:          u.name,
-            senhaHash:     u.passwordHash,
-            nivel:         u.level,
-            ativo:         true,
-            master:        u.username === 'admin',
+            username:       u.username,
+            nome:           u.name,
+            senhaHash:      u.passwordHash,
+            nivel:          u.level,
+            ativo:          true,
+            master:         u.username === 'admin',
             primeiroAcesso: u.primeiroAcesso || false,
+            instituicaoId:  u.instituicaoId  || '',
+            instituicaoNome: u.instituicaoNome || '',
         }));
         const deletedUsernames = JSON.parse(localStorage.getItem('users_deleted') || '[]');
         if (!confirm(`Publicar ${users.length} usuário(s) na nuvem?${deletedUsernames.length ? `\n${deletedUsernames.length} usuário(s) serão removidos da nuvem.` : ''}`)) return;
@@ -226,10 +230,12 @@ const sync = {
                 // Não sobrescreve usuário que já trocou a senha
                 if (existing && !existing.primeiroAcesso) continue;
                 app.users.create({
-                    username:      u.username,
-                    name:          u.nome,
-                    passwordHash:  u.senhaHash,
-                    level:         u.nivel,
+                    username:       u.username,
+                    name:           u.nome,
+                    passwordHash:   u.senhaHash,
+                    level:          u.nivel,
+                    instituicaoId:  u.instituicaoId  || '',
+                    instituicaoNome: u.instituicaoNome || '',
                     primeiroAcesso: u.primeiroAcesso === true,
                 });
                 existing ? updated++ : inserted++;
