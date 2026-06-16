@@ -1147,11 +1147,8 @@ const app = {
 
     users: {
         init: async () => {
-            if (!localStorage.getItem('user_admin')) {
-                const passwordHash = await utils.hashPassword('musica2026');
-                localStorage.setItem('user_admin', JSON.stringify({ username: 'admin', passwordHash, level: 'admin', name: 'Administrador' }));
-            }
-            // Migração: converte usuários antigos com senha em texto puro para hash
+            // Migração: converte TODOS os usuários com senha em texto puro para hash,
+            // inclusive o admin. Roda antes da criação do admin padrão.
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (key && key.startsWith('user_')) {
@@ -1164,6 +1161,11 @@ const app = {
                         }
                     } catch (e) {}
                 }
+            }
+            // Cria admin padrão apenas se ainda não existir
+            if (!localStorage.getItem('user_admin')) {
+                const passwordHash = await utils.hashPassword('musica2026');
+                localStorage.setItem('user_admin', JSON.stringify({ username: 'admin', passwordHash, level: 'admin', name: 'Administrador' }));
             }
         },
         create: (userData) => { localStorage.setItem(`user_${userData.username}`, JSON.stringify(userData)); },
