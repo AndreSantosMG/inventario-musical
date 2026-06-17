@@ -138,7 +138,7 @@ const app = {
     generateCode: () => {
         const year = new Date().getFullYear();
         const random = Math.floor(10000 + Math.random() * 90000);
-        return `FDSF-${year}-${random}`;
+        return `${APP_CONFIG.CODIGO_PREFIXO}-${year}-${random}`;
     },
 
     updateInstituicaoDisplay: () => {
@@ -1128,11 +1128,13 @@ const app = {
         if (username.includes(' ')) { alert('Usuário não pode ter espaços'); return; }
         if (app.users.get(username)) { alert('Usuário já existe'); return; }
 
+        const senhaDef = prompt(`Defina a senha inicial para ${name}:\n(mínimo 6 caracteres)`);
+        if (!senhaDef || senhaDef.trim().length < 6) { alert('Senha inválida. Mínimo 6 caracteres.'); return; }
+
         const inst = app.instituicoes.get(instId);
-        const SENHA_PADRAO = 'mudar@123';
-        const passwordHash = await utils.hashPassword(SENHA_PADRAO);
+        const passwordHash = await utils.hashPassword(senhaDef.trim());
         app.users.create({ name, username, passwordHash, level, instituicaoId: instId, instituicaoNome: inst?.nome || '', primeiroAcesso: true });
-        alert(`Usuário criado!\n\nNome: ${name}\nUsuário: ${username}\nInstituição: ${inst?.nome || instId}\nNível: ${app.accessLevels[level].name}\nSenha inicial: ${SENHA_PADRAO}\n\n⚠️ O usuário será obrigado a trocar a senha no primeiro acesso.`);
+        alert(`Usuário criado!\n\nNome: ${name}\nUsuário: ${username}\nInstituição: ${inst?.nome || instId}\nNível: ${app.accessLevels[level].name}\n\n⚠️ O usuário deverá trocar a senha no primeiro acesso.`);
         document.getElementById('new-user-name').value = '';
         document.getElementById('new-user-username').value = '';
         document.getElementById('new-user-instituicao').value = '';
@@ -1281,15 +1283,15 @@ const app = {
     instituicoes: {
         init: () => {
             if (!localStorage.getItem('inst_default')) {
-                localStorage.setItem('inst_default', JSON.stringify({ id: 'default', nome: 'Fundação Dirce da Silva Figueiredo', cidade: 'Pedro Leopoldo' }));
+                localStorage.setItem('inst_default', JSON.stringify(APP_CONFIG.INSTITUICAO_PADRAO));
             }
             // Migração: renomeia instituição padrão se ainda tiver o nome antigo
             const instPadrao = localStorage.getItem('inst_default');
             if (instPadrao) {
                 const inst = JSON.parse(instPadrao);
                 if (inst.nome === 'Escola de Música') {
-                    inst.nome = 'Fundação Dirce da Silva Figueiredo';
-                    inst.cidade = inst.cidade === 'Sede' ? 'Pedro Leopoldo' : inst.cidade;
+                    inst.nome = APP_CONFIG.INSTITUICAO_PADRAO.nome;
+                    inst.cidade = APP_CONFIG.INSTITUICAO_PADRAO.cidade;
                     localStorage.setItem('inst_default', JSON.stringify(inst));
                 }
             }

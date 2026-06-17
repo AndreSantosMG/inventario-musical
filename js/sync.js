@@ -1,5 +1,5 @@
 const sync = {
-    GAS_URL: 'https://script.google.com/macros/s/AKfycbxX40Cj4xveniBJ-yPYIw8QiTxbWlKMTV1vX2hA_Wn08azTm3KmgvsDd3A0_YFDBCHjQg/exec',
+    get GAS_URL() { return APP_CONFIG.GAS_URL; },
 
     // -----------------------------------------------------------------------
     // INICIALIZAÇÃO: busca usuários da nuvem silenciosamente
