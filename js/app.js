@@ -1189,7 +1189,10 @@ const app = {
                         <p class="text-xs text-gray-600">${inst.cidade || 'Cidade não informada'}</p>
                     </div>
                 </div>
-                ${inst.id !== 'default' ? `<button onclick="app.deleteInstituicao('${inst.id}')" class="text-red-600 text-sm">Excluir</button>` : ''}
+                <div class="flex gap-2 items-center">
+                    <button onclick="app.editInstituicao('${inst.id}')" class="text-blue-600 text-sm">Editar</button>
+                    ${inst.id !== 'default' ? `<button onclick="app.deleteInstituicao('${inst.id}')" class="text-red-600 text-sm">Excluir</button>` : ''}
+                </div>
             `;
             container.appendChild(div);
         });
@@ -1221,6 +1224,57 @@ const app = {
         document.getElementById('new-inst-nome').value = '';
         document.getElementById('new-inst-cidade').value = '';
         logoInput.value = '';
+        app.openInstituicaoManagement();
+    },
+
+    editInstituicao: async (id) => {
+        if (!app.isLoggedIn || app.currentUser.level !== 'admin') return;
+        const inst = app.instituicoes.get(id);
+        if (!inst) return;
+
+        const novoNome = prompt('Nome da unidade:', inst.nome);
+        if (novoNome === null) return; // cancelou
+        if (!novoNome.trim()) { alert('Nome não pode ser vazio.'); return; }
+
+        const novaCidade = prompt('Cidade:', inst.cidade || '');
+        if (novaCidade === null) return;
+
+        // Pede novo logo via input de arquivo temporário
+        const trocarLogo = confirm('Deseja atualizar o logotipo?');
+        let novaLogo = inst.logo || null;
+        if (trocarLogo) {
+            novaLogo = await new Promise((resolve) => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = async () => {
+                    if (!input.files[0]) { resolve(inst.logo || null); return; }
+                    try {
+                        const compressed = await utils.compressImage(input.files[0], 200, 200, 0.7);
+                        resolve(compressed);
+                    } catch (e) {
+                        alert('Erro ao processar imagem: ' + e.message);
+                        resolve(inst.logo || null);
+                    }
+                };
+                input.click();
+            });
+        }
+
+        const updated = { ...inst, nome: novoNome.trim(), cidade: novaCidade.trim(), logo: novaLogo };
+        localStorage.setItem(`inst_${id}`, JSON.stringify(updated));
+
+        // Atualiza sessão ativa se for a instituição atual
+        if (app.currentInstituicao?.id === id) {
+            app.currentInstituicao = updated;
+            const session = JSON.parse(localStorage.getItem('sessionData') || '{}');
+            session.instituicao = updated;
+            localStorage.setItem('sessionData', JSON.stringify(session));
+            app.updateInstituicaoDisplay();
+            app.updateLogoDisplay();
+        }
+
+        alert(`✅ Unidade atualizada!\n\n${updated.nome} - ${updated.cidade}`);
         app.openInstituicaoManagement();
     },
 
